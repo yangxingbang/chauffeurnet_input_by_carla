@@ -1,8 +1,3 @@
-"""
-In this script, we are going to learn how to spawn a vehicle on the road and make it autopilot.
-At the same time, we will collect camera and lidar data from it.
-"""
-
 import carla
 import os
 import random
@@ -16,7 +11,7 @@ def main():
     try:
         # First of all, we need to create the client that will send the requests, assume port is 2000
         client = carla.Client('localhost', 2000)
-        client.set_timeout(10.0)
+        client.set_timeout(30.0)
         # print(client.get_available_maps())
 
         # you can also retrive another world by specifically defining
@@ -30,30 +25,35 @@ def main():
         ego_vehicle_bp.set_attribute('color', '255, 255, 255')
         # get a random valid occupation in the world
         transform = random.choice(world.get_map().get_spawn_points())
+        # 为便于观察调试，给定固定的起点位姿
+        transform.location = carla.Location(25.0, 105.0, 0.5)
+        transform.rotation = carla.Rotation(0.0, 180.0, 0.0)
+        print(transform.location, transform.rotation)
         # spawn the vehilce
         ego_vehicle = world.spawn_actor(ego_vehicle_bp, transform)
         ego_vehicle.set_autopilot(True)
 
-        # Nearest waypoint in the center of a Driving or Sidewalk lane.
-        waypoint01 = map_none.get_waypoint(ego_vehicle.get_location(),project_to_road=True, lane_type=(carla.LaneType.Driving | carla.LaneType.Sidewalk))
-
-        '''
-        以下打印都只能输出一帧的数据，怎么每帧都输出？
-        '''
-
-        #Nearest waypoint but specifying OpenDRIVE parameters. 
-        waypoint02 = map_none.get_waypoint_xodr(1,1,10.0)
-        print('waypoint02: ', waypoint02)
-        waypoint_list = map_none.generate_waypoints(20.0)
-        print('waypoint_list: ', waypoint_list)
         waypoint_tuple_list = map_none.get_topology()
-        print('waypoint_tuple_list: ', waypoint_tuple_list)
-        print('ego_acceleration: ', ego_vehicle.get_acceleration())
-        print('ego_velocity: ',ego_vehicle.get_velocity())
-        # 自车的bounding box，以及用box取信息
+        waypoint_tuple_list_length = len(waypoint_tuple_list)
+        # The tuples contain pairs of waypoints located either 
+        # at the point a road begins or ends. 
+        '''
+        for i in range(waypoint_tuple_list_length):
+            print("start: road_id: ", waypoint_tuple_list[i][0].road_id,
+                  " section_id: ", waypoint_tuple_list[i][0].section_id,
+                  " lane_id: ", waypoint_tuple_list[i][0].lane_id,
+                  " s: ", '%.3f' % waypoint_tuple_list[i][0].s,
+                  "    end: road_id: ", waypoint_tuple_list[i][1].road_id,
+                  " section_id: ", waypoint_tuple_list[i][1].section_id,
+                  " lane_id: ", waypoint_tuple_list[i][1].lane_id,
+                  " s: ", '%.3f' % waypoint_tuple_list[i][1].s)
+            '''
+        # 以下都拿不到每帧的数值，只能拿到初始化时的值
+        # print('ego_acceleration: ', ego_vehicle.get_acceleration())
+        # print('ego_velocity: ',ego_vehicle.get_velocity())
         ego_box = ego_vehicle.bounding_box
-        print(ego_box.location)
-        print(ego_box.extent)  
+        # print(ego_box.location)
+        # print(ego_box.extent)  
 
         # 自车添加到actor列表
         actor_list.append(ego_vehicle)
@@ -63,20 +63,27 @@ def main():
         camera_location = carla.Location(x=30, z=50)
         camera_rotation = carla.Rotation(pitch=-90)
         camera_transform = carla.Transform(camera_location, camera_rotation)
-        print(camera_rgb.get_attribute('image_size_x'))
-        print(camera_rgb.get_attribute('image_size_y'))
+        # print(camera_rgb.get_attribute('image_size_x'))
+        # print(camera_rgb.get_attribute('image_size_y'))
         # 俯视相机输出图片400 * 400像素
         camera_rgb.set_attribute('image_size_x', '400')
         camera_rgb.set_attribute('image_size_y', '400')
         # 俯视相机输出图片0.2s拍一次，我将此作为5帧
-        camera_rgb.set_attribute('sensor_tick', '0.2')
-        print(camera_rgb.get_attribute('sensor_tick'))
+        camera_rgb.set_attribute('sensor_tick', '2.0')
+        # print(camera_rgb.get_attribute('sensor_tick'))
         camera = world.spawn_actor(camera_rgb, camera_transform, attach_to=ego_vehicle)
 
         # set the callback function
         cc = carla.ColorConverter.LogarithmicDepth
         camera.listen(lambda image: image.save_to_disk('output_path/%06d.png' % image.frame, cc))
         sensor_list.append(camera)
+
+        # 没有起作用！咋回事？
+        if ego_vehicle.is_at_traffic_light():
+            traffic_light = ego_vehicle.get_traffic_light()
+            if traffic_light.get_state() == carla.TrafficLightState.Red:
+                print("Traffic light changed! Good to go!")
+                traffic_light.set_state(carla.TrafficLightState.Green)
 
 
         while True:
