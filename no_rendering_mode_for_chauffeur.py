@@ -1605,6 +1605,7 @@ def game_loop(args):
 
         # Game loop
         clock = pygame.time.Clock()
+        total_time = clock.get_time()
         while True:
             clock.tick_busy_loop(60)
 
@@ -1621,6 +1622,11 @@ def game_loop(args):
             input_control.render(display)
 
             pygame.display.flip()
+
+            # 每帧保存显示的图片
+            total_time += clock.get_time()
+            full_path = str(os.path.join("cache", "display"))
+            pygame.image.save(display, '%09d.png' % total_time)
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
