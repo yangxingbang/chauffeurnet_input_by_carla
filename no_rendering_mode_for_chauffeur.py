@@ -841,9 +841,9 @@ class MapImage(object):
                         r = r.get_right_lane()
 
                 # Draw classified lane types
-                draw_lane(map_surface, shoulder, SHOULDER_COLOR)
-                draw_lane(map_surface, parking, PARKING_COLOR)
-                draw_lane(map_surface, sidewalk, SIDEWALK_COLOR)
+                # draw_lane(map_surface, shoulder, SHOULDER_COLOR)
+                # draw_lane(map_surface, parking, PARKING_COLOR)
+                # draw_lane(map_surface, sidewalk, SIDEWALK_COLOR)
 
             # Draw Roads
             for waypoints in set_waypoints:
@@ -859,18 +859,21 @@ class MapImage(object):
                     pygame.draw.polygon(map_surface, COLOR_ALUMINIUM_5, polygon)
 
                 # Draw Lane Markings and Arrows
+                '''
                 if not waypoint.is_junction:
                     draw_lane_marking(map_surface, [waypoints, waypoints])
                     for n, wp in enumerate(waypoints):
                         if ((n + 1) % 400) == 0:
                             draw_arrow(map_surface, wp.transform)
-
+                            '''
         topology = carla_map.get_topology()
         draw_topology(topology, 0)
 
+        '''
         if self.show_spawn_points:
             for sp in carla_map.get_spawn_points():
                 draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
+                '''
 
         if self.show_connections:
             dist = 1.5
