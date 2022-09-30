@@ -253,7 +253,7 @@ class HelpText(object):
         self.pos = (0.5 * width - 0.5 * self.dim[0], 0.5 * height - 0.5 * self.dim[1])
         self.seconds_left = 0
         self.surface = pygame.Surface(self.dim)
-        self.surface.fill(COLOR_BLACK)
+        #self.surface.fill(COLOR_BLACK)
         for n, line in enumerate(lines):
             text_texture = self.font.render(line, True, COLOR_WHITE)
             self.surface.blit(text_texture, (22, n * 22))
@@ -488,17 +488,21 @@ class MapImage(object):
         # save OpenDrive content
         opendrive_content = carla_map.to_opendrive()
 
-        # 获取commit id？
+        # 利用哈希算法生成字符串
         # Get hash based on content
         hash_func = hashlib.sha1()
         hash_func.update(opendrive_content.encode("UTF-8"))
         opendrive_hash = str(hash_func.hexdigest())
 
         # Build path for saving or loading the cached rendered map
+        # pygame就是能打开tga这种格式，并转换为surface对象
         filename = carla_map.name + "_" + opendrive_hash + ".tga"
+        file_name_png = carla_map.name + "_" + opendrive_hash + ".png"
         dirname = os.path.join("cache", "no_rendering_mode")
         full_path = str(os.path.join(dirname, filename))
+        full_path_png = str(os.path.join(dirname, file_name_png))
 
+        '''
         if os.path.isfile(full_path):
             # Load Image
             self.big_map_surface = pygame.image.load(full_path)
@@ -522,12 +526,37 @@ class MapImage(object):
 
             # Save rendered map for next executions of same map
             pygame.image.save(self.big_map_surface, full_path)
+            '''
+
+        # 地图保存为png格式
+        if os.path.isfile(full_path_png):
+            # Load Image
+            self.big_map_surface = pygame.image.load(full_path_png)
+        else:
+            # Render map
+            self.draw_road_map(
+                self.big_map_surface,
+                carla_world,
+                carla_map,
+                self.world_to_pixel,
+                self.world_to_pixel_width)
+
+            # If folders path does not exist, create it
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+
+            # Remove files if selected town had a previous version saved
+            list_filenames = glob.glob(os.path.join(dirname, carla_map.name) + "*")
+            for town_filename in list_filenames:
+                os.remove(town_filename)
+            pygame.image.save(self.big_map_surface, full_path_png)
+
 
         self.surface = self.big_map_surface
 
     def draw_road_map(self, map_surface, carla_world, carla_map, world_to_pixel, world_to_pixel_width):
         """Draws all the roads, including lane markings, arrows and traffic signs"""
-        map_surface.fill(COLOR_ALUMINIUM_4)
+        # map_surface.fill(COLOR_ALUMINIUM_4)
         precision = 0.05
 
         def lane_marking_color_to_tango(lane_marking_color):
@@ -812,9 +841,9 @@ class MapImage(object):
                         r = r.get_right_lane()
 
                 # Draw classified lane types
-                draw_lane(map_surface, shoulder, SHOULDER_COLOR)
-                draw_lane(map_surface, parking, PARKING_COLOR)
-                draw_lane(map_surface, sidewalk, SIDEWALK_COLOR)
+                # draw_lane(map_surface, shoulder, SHOULDER_COLOR)
+                # draw_lane(map_surface, parking, PARKING_COLOR)
+                # draw_lane(map_surface, sidewalk, SIDEWALK_COLOR)
 
             # Draw Roads
             for waypoints in set_waypoints:
@@ -830,18 +859,21 @@ class MapImage(object):
                     pygame.draw.polygon(map_surface, COLOR_ALUMINIUM_5, polygon)
 
                 # Draw Lane Markings and Arrows
+                '''
                 if not waypoint.is_junction:
                     draw_lane_marking(map_surface, [waypoints, waypoints])
                     for n, wp in enumerate(waypoints):
                         if ((n + 1) % 400) == 0:
                             draw_arrow(map_surface, wp.transform)
-
+                            '''
         topology = carla_map.get_topology()
         draw_topology(topology, 0)
 
+        '''
         if self.show_spawn_points:
             for sp in carla_map.get_spawn_points():
                 draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
+                '''
 
         if self.show_connections:
             dist = 1.5
@@ -985,6 +1017,7 @@ class World(object):
         self._hud = hud
         self._input = input_control
 
+        # 表示能被看到的地图窗口是self._hud.dim[1]*self._hud.dim[1]的
         self.original_surface_size = min(self._hud.dim[0], self._hud.dim[1])
         self.surface_size = self.map_image.big_map_surface.get_width()
 
@@ -998,15 +1031,16 @@ class World(object):
         self.vehicle_id_surface = pygame.Surface((self.surface_size, self.surface_size)).convert()
         self.vehicle_id_surface.set_colorkey(COLOR_BLACK)
 
-        self.border_round_surface = pygame.Surface(self._hud.dim, pygame.SRCALPHA).convert()
-        self.border_round_surface.set_colorkey(COLOR_WHITE)
+        # self.border_round_surface = pygame.Surface(self._hud.dim, pygame.SRCALPHA).convert()
+        # self.border_round_surface.set_colorkey(COLOR_WHITE)
         # self.border_round_surface.fill(COLOR_BLACK)
 
-        # Used for Hero Mode, draws the map contained in a circle with white border
-        center_offset = (int(self._hud.dim[0] / 2), int(self._hud.dim[1] / 2))
-        pygame.draw.circle(self.border_round_surface, COLOR_ALUMINIUM_1, center_offset, int(self._hud.dim[1] / 2))
-        pygame.draw.circle(self.border_round_surface, COLOR_WHITE, center_offset, int((self._hud.dim[1] - 8) / 2))
+        # 把原来的圆窗更换为矩形窗，窗口的大小与显示界面一样大
+        # self._hud.dim[0]: 1280, self._hud.dim[1]: 720
+        # rect_offset = pygame.Rect((0, 0), (self._hud.dim[0], self._hud.dim[1]))
+        # pygame.draw.rect(self.border_round_surface, COLOR_WHITE, rect_offset)
 
+        # 所以hero窗口比地图窗口更大
         scaled_original_size = self.original_surface_size * (1.0 / 0.9)
         self.hero_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
 
@@ -1244,18 +1278,20 @@ class World(object):
     def _render_vehicles(self, surface, list_v, world_to_pixel):
         """Renders the vehicles' bounding boxes"""
         for v in list_v:
-            color = COLOR_SKY_BLUE_0
+            color = COLOR_WHITE
+            # 自行车和摩托车，暂时不需要
+            '''
             if int(v[0].attributes['number_of_wheels']) == 2:
                 color = COLOR_CHOCOLATE_1
+            '''
             if v[0].attributes['role_name'] == 'hero':
-                color = COLOR_CHAMELEON_0
-            # Compute bounding box points
+                color = COLOR_WHITE
+            # 五边形的车改为四边形，颜色改为白
             bb = v[0].bounding_box.extent
             corners = [carla.Location(x=-bb.x, y=-bb.y),
                        carla.Location(x=bb.x - 0.8, y=-bb.y),
-                       carla.Location(x=bb.x, y=0),
                        carla.Location(x=bb.x - 0.8, y=bb.y),
-                       carla.Location(x=-bb.x, y=bb.y),
+                        carla.Location(x=-bb.x, y=bb.y),
                        carla.Location(x=-bb.x, y=-bb.y)
                        ]
             v[1].transform(corners)
@@ -1265,19 +1301,21 @@ class World(object):
     def render_actors(self, surface, vehicles, traffic_lights, speed_limits, walkers):
         """Renders all the actors"""
         # Static actors
-        self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
-        self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
-                                  self.map_image.world_to_pixel_width)
+        # self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
+        # self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
+        #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
         self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
-        self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
+        # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
+    '''
     def clip_surfaces(self, clipping_rect):
         """Used to improve perfomance. Clips the surfaces in order to render only the part of the surfaces that are going to be visible"""
         self.actors_surface.set_clip(clipping_rect)
         self.vehicle_id_surface.set_clip(clipping_rect)
         self.result_surface.set_clip(clipping_rect)
+        '''
 
     def _compute_scale(self, scale_factor):
         """Based on the mouse wheel and mouse position, it will compute the scale and move the map so that it is zoomed in or out based on mouse position"""
@@ -1348,19 +1386,19 @@ class World(object):
             translation_offset = (hero_location_screen[0] - self.hero_surface.get_width() / 2 + hero_front.x * PIXELS_AHEAD_VEHICLE,
                                   (hero_location_screen[1] - self.hero_surface.get_height() / 2 + hero_front.y * PIXELS_AHEAD_VEHICLE))
 
-            # 车辆需要转换为矩形
-            # Apply clipping rect
+            # Apply clipping rect: 2568, 1582, 800, 800
+            '''
             clipping_rect = pygame.Rect(translation_offset[0],
                                         translation_offset[1],
                                         self.hero_surface.get_width(),
                                         self.hero_surface.get_height())
             self.clip_surfaces(clipping_rect)
-
+            '''
             Util.blits(self.result_surface, surfaces)
 
-            self.border_round_surface.set_clip(clipping_rect)
+            # self.border_round_surface.set_clip(clipping_rect)
 
-            self.hero_surface.fill(COLOR_ALUMINIUM_4)
+            # self.hero_surface.fill(COLOR_ALUMINIUM_4)
             self.hero_surface.blit(self.result_surface, (-translation_offset[0],
                                                          -translation_offset[1]))
 
@@ -1370,7 +1408,7 @@ class World(object):
             rotation_pivot = rotated_result_surface.get_rect(center=center)
             display.blit(rotated_result_surface, rotation_pivot)
 
-            display.blit(self.border_round_surface, (0, 0))
+            # display.blit(self.border_round_surface, (0, 0))
         else:
             # Map Mode
             # Translation offset
@@ -1378,14 +1416,17 @@ class World(object):
                                   self._input.mouse_offset[1] * scale_factor + self.scale_offset[1])
             center_offset = (abs(display.get_width() - self.surface_size) / 2 * scale_factor, 0)
 
-            # Apply clipping rect
+            '''
+            Apply clipping rect
             clipping_rect = pygame.Rect(-translation_offset[0] - center_offset[0], -translation_offset[1],
                                         self._hud.dim[0], self._hud.dim[1])
             self.clip_surfaces(clipping_rect)
+
             Util.blits(self.result_surface, surfaces)
 
             display.blit(self.result_surface, (translation_offset[0] + center_offset[0],
                                                translation_offset[1]))
+            '''
 
     def destroy(self):
         """Destroy the hero actor when class instance is destroyed"""
@@ -1538,8 +1579,9 @@ def game_loop(args):
     try:
         # Init Pygame
         pygame.init()
+        # 整个显示窗口的大小控制，很重要
         display = pygame.display.set_mode(
-            (args.width, args.height),
+            (args.height, args.height),
             pygame.HWSURFACE | pygame.DOUBLEBUF)
 
         # Place a title to game window
@@ -1563,6 +1605,7 @@ def game_loop(args):
 
         # Game loop
         clock = pygame.time.Clock()
+        total_time = clock.get_time()
         while True:
             clock.tick_busy_loop(60)
 
@@ -1571,13 +1614,19 @@ def game_loop(args):
             hud.tick(clock)
             input_control.tick(clock)
 
-            # Render all modules
-            display.fill(COLOR_ALUMINIUM_4)
+            # 为地图显示区域两侧的区域涂上金属色
+            # display.fill(COLOR_ALUMINIUM_4)
             world.render(display)
-            hud.render(display)
+            # 去掉左边的文字显示
+            # hud.render(display)
             input_control.render(display)
 
             pygame.display.flip()
+
+            # 每帧保存显示的图片
+            total_time += clock.get_time()
+            full_path = str(os.path.join("cache", "display"))
+            pygame.image.save(display, '%09d.png' % total_time)
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
@@ -1627,8 +1676,9 @@ def main():
     argparser.add_argument(
         '--filter',
         metavar='PATTERN',
-        default='vehicle.*',
-        help='actor filter (default: "vehicle.*")')
+        # 固定车型
+        default='vehicle.volkswagen.t2',
+        help='actor filter (default: "vehicle.volkswagen.t2")')
     argparser.add_argument(
         '--map',
         metavar='TOWN',
