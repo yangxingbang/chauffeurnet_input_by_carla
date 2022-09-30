@@ -253,7 +253,7 @@ class HelpText(object):
         self.pos = (0.5 * width - 0.5 * self.dim[0], 0.5 * height - 0.5 * self.dim[1])
         self.seconds_left = 0
         self.surface = pygame.Surface(self.dim)
-        self.surface.fill(COLOR_BLACK)
+        #self.surface.fill(COLOR_BLACK)
         for n, line in enumerate(lines):
             text_texture = self.font.render(line, True, COLOR_WHITE)
             self.surface.blit(text_texture, (22, n * 22))
@@ -488,17 +488,21 @@ class MapImage(object):
         # save OpenDrive content
         opendrive_content = carla_map.to_opendrive()
 
-        # 获取commit id？
+        # 利用哈希算法生成字符串
         # Get hash based on content
         hash_func = hashlib.sha1()
         hash_func.update(opendrive_content.encode("UTF-8"))
         opendrive_hash = str(hash_func.hexdigest())
 
         # Build path for saving or loading the cached rendered map
+        # pygame就是能打开tga这种格式，并转换为surface对象
         filename = carla_map.name + "_" + opendrive_hash + ".tga"
+        file_name_png = carla_map.name + "_" + opendrive_hash + ".png"
         dirname = os.path.join("cache", "no_rendering_mode")
         full_path = str(os.path.join(dirname, filename))
+        full_path_png = str(os.path.join(dirname, file_name_png))
 
+        '''
         if os.path.isfile(full_path):
             # Load Image
             self.big_map_surface = pygame.image.load(full_path)
@@ -522,6 +526,31 @@ class MapImage(object):
 
             # Save rendered map for next executions of same map
             pygame.image.save(self.big_map_surface, full_path)
+            '''
+
+        # 地图保存为png格式
+        if os.path.isfile(full_path_png):
+            # Load Image
+            self.big_map_surface = pygame.image.load(full_path_png)
+        else:
+            # Render map
+            self.draw_road_map(
+                self.big_map_surface,
+                carla_world,
+                carla_map,
+                self.world_to_pixel,
+                self.world_to_pixel_width)
+
+            # If folders path does not exist, create it
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+
+            # Remove files if selected town had a previous version saved
+            list_filenames = glob.glob(os.path.join(dirname, carla_map.name) + "*")
+            for town_filename in list_filenames:
+                os.remove(town_filename)
+            pygame.image.save(self.big_map_surface, full_path_png)
+
 
         self.surface = self.big_map_surface
 
@@ -1002,10 +1031,10 @@ class World(object):
         self.border_round_surface.set_colorkey(COLOR_WHITE)
         # self.border_round_surface.fill(COLOR_BLACK)
 
-        # Used for Hero Mode, draws the map contained in a circle with white border
-        center_offset = (int(self._hud.dim[0] / 2), int(self._hud.dim[1] / 2))
-        pygame.draw.circle(self.border_round_surface, COLOR_ALUMINIUM_1, center_offset, int(self._hud.dim[1] / 2))
-        pygame.draw.circle(self.border_round_surface, COLOR_WHITE, center_offset, int((self._hud.dim[1] - 8) / 2))
+        # 把原来的圆窗更换为矩形窗，窗口的大小与显示界面一样大
+        # self._hud.dim[0]: 1280, self._hud.dim[1]: 720
+        rect_offset = pygame.Rect((0, 0), (self._hud.dim[0], self._hud.dim[1]))
+        pygame.draw.rect(self.border_round_surface, COLOR_WHITE, rect_offset)
 
         scaled_original_size = self.original_surface_size * (1.0 / 0.9)
         self.hero_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
