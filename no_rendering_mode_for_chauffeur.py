@@ -628,9 +628,11 @@ class MapImage(object):
                 polygon = lane_left_side + [x for x in reversed(lane_right_side)]
                 polygon = [world_to_pixel(x) for x in polygon]
 
+                '''
                 if len(polygon) > 2:
                     pygame.draw.polygon(surface, color, polygon, 5)
                     pygame.draw.polygon(surface, color, polygon)
+                    '''
 
         def draw_lane_marking(surface, waypoints):
             """Draws the left and right side of lane markings"""
@@ -990,6 +992,7 @@ class World(object):
                 world = self.client.load_world(self.args.map)
 
             town_map = world.get_map()
+            print(town_map)
             return (world, town_map)
 
         except RuntimeError as ex:
@@ -1079,9 +1082,11 @@ class World(object):
         while self.hero_actor is None:
             spawn_points = self.world.get_map().get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            spawn_point.location = carla.Location(25.0, 105.0, 0.5)
+            spawn_point.rotation = carla.Rotation(0.0, 180.0, 0.0)
             self.hero_actor = self.world.try_spawn_actor(blueprint, spawn_point)
+            # 生成自车的固定位置设置进去了，但是打印self.hero_actor的位置都是0，为什么？
         self.hero_transform = self.hero_actor.get_transform()
-
         # Save it in order to destroy it when closing program
         self.spawned_hero = self.hero_actor
 
@@ -1228,6 +1233,7 @@ class World(object):
         radius = world_to_pixel_width(2)
         font = pygame.font.SysFont('Arial', font_size)
 
+        # list_sl是一个Actor的列表
         for sl in list_sl:
 
             x, y = world_to_pixel(sl.get_location())
@@ -1238,6 +1244,9 @@ class World(object):
             pygame.draw.circle(surface, COLOR_SCARLET_RED_1, (x, y), radius)
             pygame.draw.circle(surface, COLOR_ALUMINIUM_0, (x, y), white_circle_radius)
 
+            # sl是一个Actor类型，它的第一个元素是id，第二个元素是包含限速值的字符串
+            # type_id是一个字符串，第一个点以前的是traffic，第二点以前的是speed_limit, 第二点以后的是限速的数值
+            # 用点分割后有3个量，[0]表示traffic，[1]表示speed_limit，[2]表示数值
             limit = sl.type_id.split('.')[2]
             font_surface = font.render(limit, True, COLOR_ALUMINIUM_5)
 
@@ -1301,7 +1310,14 @@ class World(object):
     def render_actors(self, surface, vehicles, traffic_lights, speed_limits, walkers):
         """Renders all the actors"""
         # Static actors
+        # carla中的交通灯和速度标识与论文中需要的不一致，需要重新生成！
+
         # self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
+
+        # speed_limits是一个pair的集合
+        # sl是一个pair
+        # sl[0]表示pair的第一个元素，sl[1]表示第二个元素，他们合起来构成一个pair
+        # 那speed_limits中的元素是怎么排序的呢？或者他们是根据什么原则一个一个放进去的呢？
         # self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
         #                           self.map_image.world_to_pixel_width)
 
@@ -1588,10 +1604,10 @@ def game_loop(args):
         pygame.display.set_caption(args.description)
 
         # Show loading screen
-        font = pygame.font.Font(pygame.font.get_default_font(), 20)
-        text_surface = font.render('Rendering map...', True, COLOR_WHITE)
-        display.blit(text_surface, text_surface.get_rect(center=(args.width / 2, args.height / 2)))
-        pygame.display.flip()
+        # font = pygame.font.Font(pygame.font.get_default_font(), 20)
+        # text_surface = font.render('Rendering map...', True, COLOR_WHITE)
+        # display.blit(text_surface, text_surface.get_rect(center=(args.width / 2, args.height / 2)))
+        # pygame.display.flip()
 
         # Init
         input_control = InputControl(TITLE_INPUT)
@@ -1606,6 +1622,7 @@ def game_loop(args):
         # Game loop
         clock = pygame.time.Clock()
         total_time = clock.get_time()
+        counts = 0
         while True:
             clock.tick_busy_loop(60)
 
@@ -1623,10 +1640,20 @@ def game_loop(args):
 
             pygame.display.flip()
 
-            # 每帧保存显示的图片
+            # 每10帧保存显示的图片
+            '''
+            total_time_last_step = total_time
             total_time += clock.get_time()
-            full_path = str(os.path.join("cache", "display"))
-            pygame.image.save(display, '%09d.png' % total_time)
+            if total_time_last_step != total_time:
+                counts += 1
+            if counts == 10:
+                full_path = str(os.path.join("cache", "display"))
+                pygame.image.save(display, '%09d.png' % total_time)
+                counts = 0
+                '''
+            # pygame没有给出定义灰度图的API，所以自己在保存以前就将display转为灰度的？
+            # 还是在生成png图片以后再读入，读入时转换为灰度图？
+            # 最好能在写入display的时候就生成灰度图！
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
