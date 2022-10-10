@@ -12,12 +12,23 @@ def main():
         # First of all, we need to create the client that will send the requests, assume port is 2000
         client = carla.Client('localhost', 2000)
         client.set_timeout(30.0)
-        # print(client.get_available_maps())
+        # 使用Town02地图，在CarlaViz中能显示出地图拓扑，使用Town02_Opt显示不出
+        # 所以分层地图对我的使用需求并不是最好的，它总会出现意想不到的问题
+        world = client.load_world('Town02')
+        # world = client.load_world('Town02_Opt')
 
-        # you can also retrive another world by specifically defining
-        world = client.load_world('Town02_Opt', map_layers=carla.MapLayer.NONE)
-        map_none = world.get_map()
+        # 使用了no_rendering_mode以后，帧率等信息一闪而过，UE界面漆黑一片
+        # 程序仍然在运行，因为rgb相机的图片输出了
+        settings = world.get_settings()
+        settings.no_rendering_mode = True
+        # world.apply_settings(settings)
+
+        # 使用了固定帧0.5以后，UE中的车跑的飞快
+        settings = world.get_settings()
+        settings.fixed_delta_seconds = 0.5
+        world.apply_settings(settings)
         
+        map_none = world.get_map()
         blueprint_library = world.get_blueprint_library()
         # create the ego vehicle
         ego_vehicle_bp = blueprint_library.find('vehicle.volkswagen.t2')
@@ -75,7 +86,7 @@ def main():
 
         # set the callback function
         cc = carla.ColorConverter.LogarithmicDepth
-        camera.listen(lambda image: image.save_to_disk('output_path/%06d.png' % image.frame, cc))
+        # camera.listen(lambda image: image.save_to_disk('output_path/%06d.png' % image.frame, cc))
         sensor_list.append(camera)
 
         # 没有起作用！咋回事？
