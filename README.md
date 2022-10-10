@@ -5,3 +5,6 @@
 
 
 (2) shall open another window for getting traffic lights in each loop
+
+
+(3) so hard
