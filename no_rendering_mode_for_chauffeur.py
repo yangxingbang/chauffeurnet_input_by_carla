@@ -528,12 +528,10 @@ class MapImage(object):
             pygame.image.save(self.big_map_surface, full_path)
             '''
 
-        # 地图保存为png格式
+        # 加载到了opendrive .xodr格式的地图
         if os.path.isfile(full_path_png):
-            # Load Image
             self.big_map_surface = pygame.image.load(full_path_png)
         else:
-            # Render map
             self.draw_road_map(
                 self.big_map_surface,
                 carla_world,
@@ -541,11 +539,9 @@ class MapImage(object):
                 self.world_to_pixel,
                 self.world_to_pixel_width)
 
-            # If folders path does not exist, create it
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
 
-            # Remove files if selected town had a previous version saved
             list_filenames = glob.glob(os.path.join(dirname, carla_map.name) + "*")
             for town_filename in list_filenames:
                 os.remove(town_filename)
@@ -565,18 +561,23 @@ class MapImage(object):
 
             if lane_marking_color == carla.LaneMarkingColor.White:
                 tango_color = COLOR_ALUMINIUM_2
+                print("COLOR_ALUMINIUM_2: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Blue:
                 tango_color = COLOR_SKY_BLUE_0
+                print("COLOR_SKY_BLUE_0: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Green:
                 tango_color = COLOR_CHAMELEON_0
+                print("COLOR_CHAMELEON_0: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Red:
                 tango_color = COLOR_SCARLET_RED_0
+                print("COLOR_SCARLET_RED_0: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Yellow:
                 tango_color = COLOR_ORANGE_0
+                print("COLOR_ORANGE_0: ", tango_color)
 
             return tango_color
 
@@ -638,9 +639,11 @@ class MapImage(object):
             """Draws the left and right side of lane markings"""
             # Left Side
             draw_lane_marking_single_side(surface, waypoints[0], -1)
+            print("draw_lane_marking_single_side")
 
             # Right Side
             draw_lane_marking_single_side(surface, waypoints[1], 1)
+            print(draw_lane_marking_single_side)
 
         def draw_lane_marking_single_side(surface, waypoints, sign):
             """Draws the lane marking given a set of waypoints and decides whether drawing the right or left side of
@@ -783,6 +786,7 @@ class MapImage(object):
 
         def draw_topology(carla_topology, index):
             """ Draws traffic signs and the roads network with sidewalks, parking and shoulders by generating waypoints"""
+            print("draw_topology")
             topology = [x[index] for x in carla_topology]
             topology = sorted(topology, key=lambda w: w.transform.location.z)
             set_waypoints = []
@@ -861,6 +865,8 @@ class MapImage(object):
                     pygame.draw.polygon(map_surface, COLOR_ALUMINIUM_5, polygon)
 
                 # Draw Lane Markings and Arrows
+
+
                 '''
                 if not waypoint.is_junction:
                     draw_lane_marking(map_surface, [waypoints, waypoints])
@@ -868,6 +874,8 @@ class MapImage(object):
                         if ((n + 1) % 400) == 0:
                             draw_arrow(map_surface, wp.transform)
                             '''
+
+        
         topology = carla_map.get_topology()
         draw_topology(topology, 0)
 
@@ -986,13 +994,46 @@ class World(object):
             self.client = carla.Client(self.args.host, self.args.port)
             self.client.set_timeout(self.timeout)
 
+            '''
             if self.args.map is None:
                 world = self.client.get_world()
             else:
                 world = self.client.load_world(self.args.map)
 
             town_map = world.get_map()
-            print(town_map)
+            '''
+
+            # 加载了opendrive .xodr格式的地图
+            # 但是加载出来的地图只有道路边界，没有车道线等
+            # 这和之前的加载None的Opt地图是一样的
+            # 这是为什么？
+            if self.args.map is not None:
+                    print('load map %r.' % self.args.map)
+                    world = self.client.load_world(self.args.map)
+            elif self.args.reload_map:
+                    print('reload map.')
+                    world = self.client.reload_world()
+            elif self.args.xodr_path is not None:
+                    if os.path.exists(self.args.xodr_path):
+                        with open(self.args.xodr_path, encoding='utf-8') as od_file:
+                            try:
+                                data = od_file.read()
+                            except OSError:
+                                print('file could not be readed.')
+                                sys.exit()
+                        print('load opendrive map %r.' % os.path.basename(self.args.xodr_path))
+                        world = self.client.generate_opendrive_world(
+                            data, carla.OpendriveGenerationParameters(
+                                vertex_distance=2.0,
+                                max_road_length=500.0,
+                                wall_height=1.0,
+                                additional_width=0.6,
+                                smooth_junctions=True,
+                                enable_mesh_visibility=True))
+            else:
+                print('file not found.')
+            town_map = world.get_map()
+
             return (world, town_map)
 
         except RuntimeError as ex:
@@ -1322,7 +1363,7 @@ class World(object):
         #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
-        self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
+        # self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
     '''
@@ -1362,6 +1403,8 @@ class World(object):
         self.result_surface.fill(COLOR_BLACK)
 
         # Split the actors by vehicle type id
+        # 在world的actor列表中，通过字符串来分割出以下类型的Actor
+        # world中的Actor类型包括车、交通灯、限速标志、行人
         vehicles, traffic_lights, speed_limits, walkers = self._split_actors()
 
         # Zoom in and out
@@ -1612,7 +1655,7 @@ def game_loop(args):
         # Init
         input_control = InputControl(TITLE_INPUT)
         hud = HUD(TITLE_HUD, args.width, args.height)
-        world = World(TITLE_WORLD, args, timeout=2.0)
+        world = World(TITLE_WORLD, args, timeout=20.0)
 
         # For each module, assign other modules that are going to be used inside that module
         input_control.start(hud, world)
@@ -1727,6 +1770,15 @@ def main():
         '--show-spawn-points',
         action='store_true',
         help='show recommended spawn points')
+    argparser.add_argument(
+        '-r', '--reload-map',
+        action='store_true',
+        help='reload current map')
+    argparser.add_argument(
+        '-x', '--xodr-path',
+        metavar='XODR_FILE_PATH',
+        default='../util/opendrive/Town02_Opt.xodr',
+        help='load a new map with a minimum physical road representation of the provided OpenDRIVE')
 
     # Parse arguments
     args = argparser.parse_args()
