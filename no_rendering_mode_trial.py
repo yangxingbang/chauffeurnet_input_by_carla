@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #!/usr/bin/env python
 
 # Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma de
@@ -97,7 +99,7 @@ except ImportError:
 # We will use the color palette used in Tango Desktop Project (Each color is indexed depending on brightness level)
 # See: https://en.wikipedia.org/wiki/Tango_Desktop_Project
 
-# 奶油色3种
+'''奶油色3种'''
 COLOR_BUTTER_0 = pygame.Color(252, 233, 79)
 COLOR_BUTTER_1 = pygame.Color(237, 212, 0)
 COLOR_BUTTER_2 = pygame.Color(196, 160, 0)
@@ -460,6 +462,10 @@ class MapImage(object):
         self.show_connections = show_connections
         self.show_spawn_points = show_spawn_points
 
+        print("show_triggers: ", show_triggers)
+        print("show_connections: ", show_connections)
+        print("show_spawn_points: ", show_spawn_points)
+
         # 每2m生成一个导航路点，那么车前会生成5个或6个导航路点
         waypoints = carla_map.generate_waypoints(2)
         margin = 50
@@ -528,7 +534,6 @@ class MapImage(object):
             pygame.image.save(self.big_map_surface, full_path)
             '''
 
-        # 加载到了opendrive .xodr格式的地图
         if os.path.isfile(full_path_png):
             self.big_map_surface = pygame.image.load(full_path_png)
         else:
@@ -546,7 +551,6 @@ class MapImage(object):
             for town_filename in list_filenames:
                 os.remove(town_filename)
             pygame.image.save(self.big_map_surface, full_path_png)
-
 
         self.surface = self.big_map_surface
 
@@ -629,11 +633,9 @@ class MapImage(object):
                 polygon = lane_left_side + [x for x in reversed(lane_right_side)]
                 polygon = [world_to_pixel(x) for x in polygon]
 
-                '''
                 if len(polygon) > 2:
                     pygame.draw.polygon(surface, color, polygon, 5)
                     pygame.draw.polygon(surface, color, polygon)
-                    '''
 
         def draw_lane_marking(surface, waypoints):
             """Draws the left and right side of lane markings"""
@@ -865,25 +867,18 @@ class MapImage(object):
                     pygame.draw.polygon(map_surface, COLOR_ALUMINIUM_5, polygon)
 
                 # Draw Lane Markings and Arrows
-
-
-                '''
                 if not waypoint.is_junction:
                     draw_lane_marking(map_surface, [waypoints, waypoints])
                     for n, wp in enumerate(waypoints):
                         if ((n + 1) % 400) == 0:
                             draw_arrow(map_surface, wp.transform)
-                            '''
-
         
         topology = carla_map.get_topology()
         draw_topology(topology, 0)
 
-        '''
         if self.show_spawn_points:
             for sp in carla_map.get_spawn_points():
                 draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
-                '''
 
         if self.show_connections:
             dist = 1.5
@@ -994,19 +989,19 @@ class World(object):
             self.client = carla.Client(self.args.host, self.args.port)
             self.client.set_timeout(self.timeout)
 
-            '''
             if self.args.map is None:
                 world = self.client.get_world()
             else:
                 world = self.client.load_world(self.args.map)
 
             town_map = world.get_map()
-            '''
+            print(town_map)
 
             # 加载了opendrive .xodr格式的地图
             # 但是加载出来的地图只有道路边界，没有车道线等
             # 这和之前的加载None的Opt地图是一样的
             # 这是为什么？
+            '''
             if self.args.map is not None:
                     print('load map %r.' % self.args.map)
                     world = self.client.load_world(self.args.map)
@@ -1033,6 +1028,7 @@ class World(object):
             else:
                 print('file not found.')
             town_map = world.get_map()
+            '''
 
             return (world, town_map)
 
@@ -1045,7 +1041,6 @@ class World(object):
         self.world, self.town_map = self._get_data_from_carla()
 
         settings = self.world.get_settings()
-        # 世界不渲染
         settings.no_rendering_mode = self.args.no_rendering
         self.world.apply_settings(settings)
 
@@ -1363,7 +1358,7 @@ class World(object):
         #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
-        # self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
+        self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
     '''
@@ -1480,7 +1475,6 @@ class World(object):
             clipping_rect = pygame.Rect(-translation_offset[0] - center_offset[0], -translation_offset[1],
                                         self._hud.dim[0], self._hud.dim[1])
             self.clip_surfaces(clipping_rect)
-
             Util.blits(self.result_surface, surfaces)
 
             display.blit(self.result_surface, (translation_offset[0] + center_offset[0],
@@ -1770,6 +1764,7 @@ def main():
         '--show-spawn-points',
         action='store_true',
         help='show recommended spawn points')
+    '''
     argparser.add_argument(
         '-r', '--reload-map',
         action='store_true',
@@ -1779,6 +1774,7 @@ def main():
         metavar='XODR_FILE_PATH',
         default='../util/opendrive/Town02_Opt.xodr',
         help='load a new map with a minimum physical road representation of the provided OpenDRIVE')
+        '''
 
     # Parse arguments
     args = argparser.parse_args()
