@@ -455,16 +455,13 @@ class MapImage(object):
         hash_func.update(opendrive_content.encode("UTF-8"))
         opendrive_hash = str(hash_func.hexdigest())
 
-        # Build path for saving or loading the cached rendered map
-        filename = carla_map.name + "_" + opendrive_hash + ".tga"
+        file_name_png = carla_map.name + "_" + opendrive_hash + ".png"
         dirname = os.path.join("cache", "no_rendering_mode")
-        full_path = str(os.path.join(dirname, filename))
+        full_path_png = str(os.path.join(dirname, file_name_png))
 
-        if os.path.isfile(full_path):
-            # Load Image
-            self.big_map_surface = pygame.image.load(full_path)
+        if os.path.isfile(full_path_png):
+            self.big_map_surface = pygame.image.load(full_path_png)
         else:
-            # Render map
             self.draw_road_map(
                 self.big_map_surface,
                 carla_world,
@@ -472,17 +469,13 @@ class MapImage(object):
                 self.world_to_pixel,
                 self.world_to_pixel_width)
 
-            # If folders path does not exist, create it
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
 
-            # Remove files if selected town had a previous version saved
             list_filenames = glob.glob(os.path.join(dirname, carla_map.name) + "*")
             for town_filename in list_filenames:
                 os.remove(town_filename)
-
-            # Save rendered map for next executions of same map
-            # pygame.image.save(self.big_map_surface, full_path)
+            pygame.image.save(self.big_map_surface, full_path_png)
 
         self.surface = self.big_map_surface
 
@@ -747,12 +740,12 @@ class MapImage(object):
                 set_waypoints.append(waypoints)
 
                 # Draw Shoulders, Parkings and Sidewalks
-                PARKING_COLOR = COLOR_WHITE
+                # PARKING_COLOR = COLOR_WHITE
                 SHOULDER_COLOR = COLOR_WHITE
                 SIDEWALK_COLOR = COLOR_WHITE
 
                 shoulder = [[], []]
-                parking = [[], []]
+                # parking = [[], []]
                 sidewalk = [[], []]
 
                 for w in waypoints:
@@ -763,8 +756,8 @@ class MapImage(object):
                         if l.lane_type == carla.LaneType.Shoulder:
                             shoulder[0].append(l)
 
-                        if l.lane_type == carla.LaneType.Parking:
-                            parking[0].append(l)
+                        # if l.lane_type == carla.LaneType.Parking:
+                        #     parking[0].append(l)
 
                         if l.lane_type == carla.LaneType.Sidewalk:
                             sidewalk[0].append(l)
@@ -778,8 +771,8 @@ class MapImage(object):
                         if r.lane_type == carla.LaneType.Shoulder:
                             shoulder[1].append(r)
 
-                        if r.lane_type == carla.LaneType.Parking:
-                            parking[1].append(r)
+                        # if r.lane_type == carla.LaneType.Parking:
+                        #     parking[1].append(r)
 
                         if r.lane_type == carla.LaneType.Sidewalk:
                             sidewalk[1].append(r)
@@ -1235,13 +1228,13 @@ class World(object):
     def render_actors(self, surface, vehicles, traffic_lights, speed_limits, walkers):
         """Renders all the actors"""
         # Static actors
-        self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
-        self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
-                                  self.map_image.world_to_pixel_width)
+        # self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
+        # self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
+        #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
         self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
-        self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
+        # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
     def clip_surfaces(self, clipping_rect):
         """Used to improve perfomance. Clips the surfaces in order to render only the part of the surfaces that are going to be visible"""
@@ -1291,14 +1284,12 @@ class World(object):
 
         # Render Actors
         self.actors_surface.fill(COLOR_BLACK)
-        '''
         self.render_actors(
             self.actors_surface,
             vehicles,
             traffic_lights,
             speed_limits,
             walkers)
-            '''
 
         # Render Ids
         self._hud.render_vehicles_ids(self.vehicle_id_surface, vehicles,
@@ -1510,7 +1501,7 @@ def game_loop(args):
         # Init Pygame
         pygame.init()
         display = pygame.display.set_mode(
-            (args.width, args.height),
+            (args.height, args.height),
             pygame.HWSURFACE | pygame.DOUBLEBUF)
 
         # Init
@@ -1525,6 +1516,8 @@ def game_loop(args):
 
         # Game loop
         clock = pygame.time.Clock()
+        total_time = clock.get_time()
+        counts = 0
         while True:
             clock.tick_busy_loop(60)
 
@@ -1537,6 +1530,18 @@ def game_loop(args):
 
             # 删除后屏幕显示不会再更新
             pygame.display.flip()
+
+            # 每10帧保存显示的图片
+            '''
+            total_time_last_step = total_time
+            total_time += clock.get_time()
+            if total_time_last_step != total_time:
+                counts += 1
+            if counts == 100:
+                full_path = str(os.path.join("cache", "display"))
+                pygame.image.save(display, '%09d.png' % total_time)
+                counts = 0
+                '''
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
