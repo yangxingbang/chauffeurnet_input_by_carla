@@ -431,6 +431,7 @@ class MapImage(object):
         self.show_spawn_points = show_spawn_points
 
         waypoints = carla_map.generate_waypoints(2)
+
         margin = 50
         max_x = max(waypoints, key=lambda x: x.transform.location.x).transform.location.x + margin
         max_y = max(waypoints, key=lambda x: x.transform.location.y).transform.location.y + margin
@@ -475,50 +476,39 @@ class MapImage(object):
             list_filenames = glob.glob(os.path.join(dirname, carla_map.name) + "*")
             for town_filename in list_filenames:
                 os.remove(town_filename)
-            pygame.image.save(self.big_map_surface, full_path_png)
+            # pygame.image.save(self.big_map_surface, full_path_png)
 
         self.surface = self.big_map_surface
 
     def draw_road_map(self, map_surface, carla_world, carla_map, world_to_pixel, world_to_pixel_width):
         """Draws all the roads, including lane markings, arrows and traffic signs"""
-        print("draw_road_map")
-        precision = 0.05
-
         def lane_marking_color_to_tango(lane_marking_color):
             """Maps the lane marking color enum specified in PythonAPI to a Tango Color"""
             tango_color = COLOR_BLACK
 
             if lane_marking_color == carla.LaneMarkingColor.White:
                 tango_color = COLOR_WHITE
-                print("color1: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Blue:
                 tango_color = COLOR_SKY_BLUE_0
-                print("color2: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Green:
                 tango_color = COLOR_CHAMELEON_0
-                print("color3: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Red:
                 tango_color = COLOR_SCARLET_RED_0
-                print("color4: ", tango_color)
 
             elif lane_marking_color == carla.LaneMarkingColor.Yellow:
                 tango_color = COLOR_ORANGE_0
-                print("color5: ", tango_color)
 
             return tango_color
 
         def draw_solid_line(surface, color, closed, points, width):
-            print("draw_solid_line")
             """Draws solid lines in a surface given a set of points, width and color"""
             if len(points) >= 2:
                 pygame.draw.lines(surface, color, closed, points, width)
-                print("draw_solid_line")
 
         def draw_broken_line(surface, color, closed, points, width):
-            print("draw_broken_line")
             """Draws broken lines in a surface given a set of points, width and color"""
             # Select which lines are going to be rendered from the set of lines
             broken_lines = [x for n, x in enumerate(zip(*(iter(points),) * 20)) if n % 3 == 0]
@@ -530,7 +520,6 @@ class MapImage(object):
         def get_lane_markings(lane_marking_type, lane_marking_color, waypoints, sign):
             """For multiple lane marking types (SolidSolid, BrokenSolid, SolidBroken and BrokenBroken), it converts them
              as a combination of Broken and Solid lines"""
-            print("get_lane_markings")
             margin = 0.25
             marking_1 = [world_to_pixel(lateral_shift(w.transform, sign * w.lane_width * 0.5)) for w in waypoints]
             if lane_marking_type == carla.LaneMarkingType.Broken or (lane_marking_type == carla.LaneMarkingType.Solid):
@@ -568,7 +557,6 @@ class MapImage(object):
 
         def draw_lane_marking(surface, waypoints):
             """Draws the left and right side of lane markings"""
-            print("draw_lane_marking")
             # Left Side
             draw_lane_marking_single_side(surface, waypoints[0], -1)
 
@@ -630,13 +618,13 @@ class MapImage(object):
             # Once the lane markings have been simplified to Solid or Broken lines, we draw them
             for markings in markings_list:
                 if markings[0] == carla.LaneMarkingType.Solid:
+                    # print(markings[2])
                     draw_solid_line(surface, markings[1], False, markings[2], 2)
                 elif markings[0] == carla.LaneMarkingType.Broken:
                     draw_broken_line(surface, markings[1], False, markings[2], 2)
 
         '''        
         def draw_arrow(surface, transform, color=COLOR_WHITE):
-            print("draw_arrow")
             """ Draws an arrow with a specified color given a transform"""
             transform.rotation.yaw += 180
             forward = transform.get_forward_vector()
@@ -653,7 +641,6 @@ class MapImage(object):
             '''
 
         def draw_traffic_signs(surface, font_surface, actor, color=COLOR_WHITE, trigger_color=COLOR_PLUM_0):
-            print("draw_traffice_lights")
             """Draw stop traffic signs and its bounding box if enabled"""
             transform = actor.get_transform()
             waypoint = carla_map.get_waypoint(transform.location)
@@ -718,11 +705,14 @@ class MapImage(object):
             return transform.location + shift * transform.get_forward_vector()
 
         def draw_topology(carla_topology, index):
+            precision = 0.05
             print("draw_topology")
             """ Draws traffic signs and the roads network with sidewalks, parking and shoulders by generating waypoints"""
             topology = [x[index] for x in carla_topology]
             topology = sorted(topology, key=lambda w: w.transform.location.z)
             set_waypoints = []
+            # 这里的waypoints是生成拓扑的点吗？和世界生成的waypoints是同一类吗？
+            # 现在只能明确它们的数目不一致
             for waypoint in topology:
                 waypoints = [waypoint]
 
@@ -815,23 +805,32 @@ class MapImage(object):
             for sp in carla_map.get_spawn_points():
                 draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
                 '''
-
+        
+        '''
         if self.show_connections:
             dist = 1.5
 
             def to_pixel(wp): return world_to_pixel(wp.transform.location)
             for wp in carla_map.generate_waypoints(dist):
-                col = (0, 255, 255) if wp.is_junction else (0, 255, 0)
-                for nxt in wp.next(dist):
-                    pygame.draw.line(map_surface, col, to_pixel(wp), to_pixel(nxt), 2)
-                if wp.lane_change & carla.LaneChange.Right:
-                    r = wp.get_right_lane()
-                    if r and r.lane_type == carla.LaneType.Driving:
-                        pygame.draw.line(map_surface, col, to_pixel(wp), to_pixel(r), 2)
-                if wp.lane_change & carla.LaneChange.Left:
-                    l = wp.get_left_lane()
-                    if l and l.lane_type == carla.LaneType.Driving:
-                        pygame.draw.line(map_surface, col, to_pixel(wp), to_pixel(l), 2)
+                if wp.is_junction:
+                    # 品红色
+                    col = (0, 255, 255) 
+                else: 
+                    # 绿色
+                    col = (0, 255, 0)
+                if wp.is_junction:
+                    for nxt in wp.next(dist):
+                        pygame.draw.line(map_surface, col, to_pixel(wp), to_pixel(nxt), 2)
+                    if wp.lane_change & carla.LaneChange.Right:
+                        r = wp.get_right_lane()
+                        if r and r.lane_type == carla.LaneType.Driving:
+                            pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(r), 2)
+                    if wp.lane_change & carla.LaneChange.Left:
+                        l = wp.get_left_lane()
+                        if l and l.lane_type == carla.LaneType.Driving:
+                            pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(l), 2)
+                            '''
+                            
 
         actors = carla_world.get_actors()
 
@@ -1009,8 +1008,9 @@ class World(object):
         while self.hero_actor is None:
             spawn_points = self.world.get_map().get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
-            spawn_point.location = carla.Location(25.0, 105.0, 0.5)
-            spawn_point.rotation = carla.Rotation(0.0, 180.0, 0.0)
+            # 这个初始点附近很快能遇到交通灯
+            spawn_point.location = carla.Location(8, 191.5, 0.5)
+            spawn_point.rotation = carla.Rotation(0.0, 0.0, 0.0)
             self.hero_actor = self.world.try_spawn_actor(blueprint, spawn_point)
         self.hero_transform = self.hero_actor.get_transform()
 
@@ -1121,35 +1121,51 @@ class World(object):
         return (vehicles, traffic_lights, speed_limits, walkers)
 
     def _render_traffic_lights(self, surface, list_tl, world_to_pixel):
-        """Renders the traffic lights and shows its triggers and bounding boxes if flags are enabled"""
-        self.affected_traffic_light = None
+        """
+        My Own Idea
+        1. 我可以通过判断junction_id是否相同，把同一个junction中的waypoints统计到一个list中，然后把他们画出来；
+        2. 我可以建立一个有序map，键值使用junction_id, 值使用list
+        3. list中的点使用next来取，然后把当前点和next点画成直线
+        4. 但是我没法判断左转和右转，我不清楚左转右转的connection怎么匹配的，也不知道获取它的API
 
-        for tl in list_tl:
-            world_pos = tl.get_location()
-            pos = world_to_pixel(world_pos)
+        但是将变量--show-connections置为真，采用现成代码，就能将junction处的点全部连成线；
+        但是这种连线是以整体呈现的，因为不清楚哪个waypoint由哪个红绿灯控制，
+        所以不能将某个红绿灯控制的对应左转直行右转的线作为一组画出来；
 
-            if self.args.show_triggers:
-                corners = Util.get_bounding_box(tl)
-                corners = [world_to_pixel(p) for p in corners]
-                pygame.draw.lines(surface, COLOR_BUTTER_1, True, corners, 2)
+        降低要求后的实现：在车辆进入前方红绿灯影响区域，且这个红绿灯是红灯，所有junction的拓扑都会被画出来；
+        目前推测，能满足车辆走停，左转直行正常，右转异常;
 
-            if self.hero_actor is not None:
-                corners = Util.get_bounding_box(tl)
-                corners = [world_to_pixel(p) for p in corners]
-                tl_t = tl.get_transform()
+        TODO(yxb): 我需要知道junction的拓扑的获取API
+        """
 
-                transformed_tv = tl_t.transform(tl.trigger_volume.location)
-                hero_location = self.hero_actor.get_location()
-                d = hero_location.distance(transformed_tv)
-                s = Util.length(tl.trigger_volume.extent) + Util.length(self.hero_actor.bounding_box.extent)
-                if (d <= s):
-                    # Highlight traffic light
-                    self.affected_traffic_light = tl
-                    srf = self.traffic_light_surfaces.surfaces['h']
-                    surface.blit(srf, srf.get_rect(center=pos))
+        """
+        self.world.get_map().generate_waypoints(4)生成所有点；
+        hero_waypoint.next(4)只会生成一个点;
+        """
 
-            srf = self.traffic_light_surfaces.surfaces[tl.state]
-            surface.blit(srf, srf.get_rect(center=pos))
+        if self.args.show_connections:
+            dist = 4
+            def to_pixel(wp): return world_to_pixel(wp.transform.location)
+
+            current_point_junction = 10000
+            next_point_junction = 10000
+            break_flag = False
+
+            for wp in self.world.get_map().generate_waypoints(dist):
+                if wp.is_junction:
+                    current_point_junction = wp.get_junction().id
+                    for nxt in wp.next(dist):
+                        if self.hero_actor.is_at_traffic_light():
+                            traffic_light = self.hero_actor.get_traffic_light()
+                            print("traffic_light: ", traffic_light)
+                            traffic_light_state = traffic_light.get_state()
+                            print("traffic_light_state: ", traffic_light_state)
+                            if traffic_light_state == tls.Red:
+                                pygame.draw.line(surface, COLOR_SCARLET_RED_0, to_pixel(wp), to_pixel(nxt), 2)
+                            elif traffic_light_state == tls.Yellow:
+                                pygame.draw.line(surface, COLOR_ORANGE_0, to_pixel(wp), to_pixel(nxt), 2)
+                            elif traffic_light_state == tls.Green:
+                                pygame.draw.line(surface, COLOR_CHAMELEON_0, to_pixel(wp), to_pixel(nxt), 2)
 
     def _render_speed_limits(self, surface, list_sl, world_to_pixel, world_to_pixel_width):
         """Renders the speed limits by drawing two concentric circles (outer is red and inner white) and a speed limit text"""
@@ -1228,7 +1244,10 @@ class World(object):
     def render_actors(self, surface, vehicles, traffic_lights, speed_limits, walkers):
         """Renders all the actors"""
         # Static actors
-        # self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
+        # traffic_lights： 交通灯对象，交通灯位姿对象 的 集合
+        # tl: 交通灯对象，交通灯位姿对象
+        # tl[0]: 交通灯对象，他是Actor类型
+        self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
         # self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
         #                           self.map_image.world_to_pixel_width)
 
@@ -1532,7 +1551,7 @@ def game_loop(args):
             pygame.display.flip()
 
             # 每10帧保存显示的图片
-            '''
+            
             total_time_last_step = total_time
             total_time += clock.get_time()
             if total_time_last_step != total_time:
@@ -1541,7 +1560,7 @@ def game_loop(args):
                 full_path = str(os.path.join("cache", "display"))
                 pygame.image.save(display, '%09d.png' % total_time)
                 counts = 0
-                '''
+                
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
@@ -1609,6 +1628,7 @@ def main():
     argparser.add_argument(
         '--show-connections',
         action='store_true',
+        default=True,
         help='show waypoint connections')
     argparser.add_argument(
         '--show-spawn-points',
