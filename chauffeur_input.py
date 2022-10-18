@@ -1140,40 +1140,78 @@ class World(object):
 
         """
         self.world.get_map().generate_waypoints(4)生成所有点；
-        hero_waypoint.next(4)只会生成一个点;
+        hero_waypoint.next(4)只会生成一个点的list;
         """
 
-        if self.args.show_connections:
-            dist = 4
-            def to_pixel(wp): return world_to_pixel(wp.transform.location)
+        dist = 2
+        def to_pixel(wp): return world_to_pixel(wp.transform.location) 
+        
+        in_hero_junction = []
+        junction_id = 10000
 
-            current_point_junction = 10000
-            next_point_junction = 10000
-            break_flag = False
+        if self.hero_actor.is_at_traffic_light():            
+            hero_location = self.hero_actor.get_location()
+            hero_wp = self.world.get_map().get_waypoint(hero_location)
+            hero_next_wp = hero_wp.next(16.0)[0]
+            if hero_next_wp.is_junction:
+                junction_id = hero_next_wp.get_junction().id
+                print("hero junction_id: ", junction_id, "\n")
 
-            for wp in self.world.get_map().generate_waypoints(dist):
-                if wp.is_junction:
-                    current_point_junction = wp.get_junction().id
+        for wp in self.world.get_map().generate_waypoints(dist):
+            if wp.is_junction:
+                if wp.get_junction().id == junction_id:
+                    # print("wp.get_junction().id: ", wp.get_junction().id, "\n")
                     for nxt in wp.next(dist):
-                        if self.hero_actor.is_at_traffic_light():
-                            traffic_light = self.hero_actor.get_traffic_light()
-                            print("traffic_light: ", traffic_light)
-                            traffic_light_state = traffic_light.get_state()
-                            print("traffic_light_state: ", traffic_light_state)
-                            if traffic_light_state == tls.Red:
-                                pygame.draw.line(surface, COLOR_SCARLET_RED_0, to_pixel(wp), to_pixel(nxt), 2)
-                            elif traffic_light_state == tls.Yellow:
-                                pygame.draw.line(surface, COLOR_ORANGE_0, to_pixel(wp), to_pixel(nxt), 2)
-                            elif traffic_light_state == tls.Green:
-                                pygame.draw.line(surface, COLOR_CHAMELEON_0, to_pixel(wp), to_pixel(nxt), 2)
+                        if nxt.is_junction:
+                            if nxt.get_junction().id == junction_id:
+                                # print("nxt.get_junction().id: ", nxt.get_junction().id, "\n")
+                                if self.hero_actor.get_traffic_light_state() == tls.Red:
+                                    # print("red light \n")
+                                    pygame.draw.line(surface, COLOR_SCARLET_RED_0, to_pixel(wp), to_pixel(nxt), 2)
+                                elif self.hero_actor.get_traffic_light_state() == tls.Green:
+                                    print("green light \n")
+                                    pygame.draw.line(surface, COLOR_CHAMELEON_0, to_pixel(wp), to_pixel(nxt), 2)
+                                elif self.hero_actor.get_traffic_light_state() == tls.Yellow:
+                                    print("yellow light \n")
+                                    pygame.draw.line(surface, COLOR_BUTTER_0, to_pixel(wp), to_pixel(nxt), 2)
 
     def _render_speed_limits(self, surface, list_sl, world_to_pixel, world_to_pixel_width):
         """Renders the speed limits by drawing two concentric circles (outer is red and inner white) and a speed limit text"""
 
+        '''
+        if self.show_connections:
+            dist = 1.5
+
+            def to_pixel(wp): return world_to_pixel(wp.transform.location)
+            for wp in carla_map.generate_waypoints(dist):
+                if wp.is_junction:
+                    # 品红色
+                    col = (0, 255, 255) 
+                else: 
+                    # 绿色
+                    col = (0, 255, 0)
+                if wp.is_junction:
+                    for nxt in wp.next(dist):
+                        pygame.draw.line(map_surface, col, to_pixel(wp), to_pixel(nxt), 2)
+                    if wp.lane_change & carla.LaneChange.Right:
+                        r = wp.get_right_lane()
+                        if r and r.lane_type == carla.LaneType.Driving:
+                            pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(r), 2)
+                    if wp.lane_change & carla.LaneChange.Left:
+                        l = wp.get_left_lane()
+                        if l and l.lane_type == carla.LaneType.Driving:
+                            pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(l), 2)
+                            '''
+
+        # print("hero speed: ", self.hero_actor.get_velocity(), "\n")
+        # print("hero speed limit: ", self.hero_actor.get_speed_limit(), "\n")
+        # print("--------------------------------------------")
+
+
         font_size = world_to_pixel_width(2)
         radius = world_to_pixel_width(2)
         font = pygame.font.SysFont('Arial', font_size)
-
+        # sl 表示每个 限速标志
         for sl in list_sl:
 
             x, y = world_to_pixel(sl.get_location())
@@ -1184,13 +1222,9 @@ class World(object):
             pygame.draw.circle(surface, COLOR_SCARLET_RED_1, (x, y), radius)
             pygame.draw.circle(surface, COLOR_WHITE, (x, y), white_circle_radius)
 
+            # 获取限速值
             limit = sl.type_id.split('.')[2]
             font_surface = font.render(limit, True, COLOR_BLACK)
-
-            if self.args.show_triggers:
-                corners = Util.get_bounding_box(sl)
-                corners = [world_to_pixel(p) for p in corners]
-                pygame.draw.lines(surface, COLOR_PLUM_2, True, corners, 2)
 
             # Blit
             if self.hero_actor is not None:
@@ -1246,8 +1280,11 @@ class World(object):
         # Static actors
         # traffic_lights： 交通灯对象，交通灯位姿对象 的 集合
         # tl: 交通灯对象，交通灯位姿对象
-        # tl[0]: 交通灯对象，他是Actor类型
+        # tl[0]: 交通灯对象，它是Actor类型
         self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
+        # speed_limits: 交通标志对象，交通标志位姿对象 的 集合
+        # sl： 交通标志对象，交通标志位姿对象
+        # sl[0]： 交通标志对象，它也是Actor类型        
         # self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
         #                           self.map_image.world_to_pixel_width)
 
@@ -1624,6 +1661,7 @@ def main():
     argparser.add_argument(
         '--show-triggers',
         action='store_true',
+        default=False,
         help='show trigger boxes of traffic signs')
     argparser.add_argument(
         '--show-connections',
