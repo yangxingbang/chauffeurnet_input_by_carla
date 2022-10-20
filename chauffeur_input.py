@@ -97,34 +97,11 @@ except ImportError:
 # We will use the color palette used in Tango Desktop Project (Each color is indexed depending on brightness level)
 # See: https://en.wikipedia.org/wiki/Tango_Desktop_Project
 
-COLOR_BUTTER_0 = pygame.Color(252, 233, 79)
-COLOR_BUTTER_1 = pygame.Color(237, 212, 0)
-COLOR_BUTTER_2 = pygame.Color(196, 160, 0)
-
-COLOR_ORANGE_0 = pygame.Color(252, 175, 62)
-COLOR_ORANGE_1 = pygame.Color(245, 121, 0)
-COLOR_ORANGE_2 = pygame.Color(209, 92, 0)
-
-COLOR_CHOCOLATE_0 = pygame.Color(233, 185, 110)
-COLOR_CHOCOLATE_1 = pygame.Color(193, 125, 17)
-COLOR_CHOCOLATE_2 = pygame.Color(143, 89, 2)
-
-COLOR_CHAMELEON_0 = pygame.Color(138, 226, 52)
-COLOR_CHAMELEON_1 = pygame.Color(115, 210, 22)
-COLOR_CHAMELEON_2 = pygame.Color(78, 154, 6)
-
-COLOR_SKY_BLUE_0 = pygame.Color(114, 159, 207)
-COLOR_SKY_BLUE_1 = pygame.Color(52, 101, 164)
-COLOR_SKY_BLUE_2 = pygame.Color(32, 74, 135)
-
-COLOR_PLUM_0 = pygame.Color(173, 127, 168)
-COLOR_PLUM_1 = pygame.Color(117, 80, 123)
-COLOR_PLUM_2 = pygame.Color(92, 53, 102)
-
-COLOR_SCARLET_RED_0 = pygame.Color(239, 41, 41)
-COLOR_SCARLET_RED_1 = pygame.Color(204, 0, 0)
-COLOR_SCARLET_RED_2 = pygame.Color(164, 0, 0)
-
+COLOR_BLUE = pygame.Color(193, 210, 240)
+COLOR_PLUM = pygame.Color(173, 127, 168)  # 紫红色
+COLOR_RED = pygame.Color(255, 0, 0)
+COLOR_YELLOW = pygame.Color(255, 255, 0)
+COLOR_GREEN = pygame.Color(0, 255, 0)
 COLOR_WHITE = pygame.Color(255, 255, 255)
 COLOR_BLACK = pygame.Color(0, 0, 0)
 
@@ -307,11 +284,11 @@ class HUD (object):
                 if hero_actor is not None:
                     angle = -hero_transform.rotation.yaw - 90
 
-                color = COLOR_SKY_BLUE_0
+                color = COLOR_BLUE
                 if int(actor[0].attributes['number_of_wheels']) == 2:
-                    color = COLOR_CHOCOLATE_0
+                    color = COLOR_YELLOW
                 if actor[0].attributes['role_name'] == 'hero':
-                    color = COLOR_CHAMELEON_0
+                    color = COLOR_GREEN
 
                 font_surface = self._header_font.render(str(actor[0].id), True, color)
                 rotated_font_surface = pygame.transform.rotate(font_surface, angle)
@@ -382,13 +359,13 @@ class TrafficLightSurfaces(object):
             w = 40
             surface = pygame.Surface((w, 3 * w), pygame.SRCALPHA)
             # 'h'是红绿灯灯罩的颜色
-            surface.fill(COLOR_BLACK if tl != 'h' else COLOR_ORANGE_2)
+            surface.fill(COLOR_BLACK if tl != 'h' else COLOR_YELLOW)
             if tl != 'h':
                 hw = int(w / 2)
                 off = COLOR_BLACK
-                red = COLOR_SCARLET_RED_0
-                yellow = COLOR_BUTTER_0
-                green = COLOR_CHAMELEON_0
+                red = COLOR_RED
+                yellow = COLOR_YELLOW
+                green = COLOR_GREEN
 
                 # Draws the corresponding color if is on, otherwise it will be gray if its off
                 pygame.draw.circle(surface, red if tl == tls.Red else off, (hw, hw), int(0.4 * w))
@@ -490,16 +467,16 @@ class MapImage(object):
                 tango_color = COLOR_WHITE
 
             elif lane_marking_color == carla.LaneMarkingColor.Blue:
-                tango_color = COLOR_SKY_BLUE_0
+                tango_color = COLOR_BLUE
 
             elif lane_marking_color == carla.LaneMarkingColor.Green:
-                tango_color = COLOR_CHAMELEON_0
+                tango_color = COLOR_GREEN
 
             elif lane_marking_color == carla.LaneMarkingColor.Red:
-                tango_color = COLOR_SCARLET_RED_0
+                tango_color = COLOR_RED
 
             elif lane_marking_color == carla.LaneMarkingColor.Yellow:
-                tango_color = COLOR_ORANGE_0
+                tango_color = COLOR_YELLOW
 
             return tango_color
 
@@ -640,7 +617,7 @@ class MapImage(object):
             pygame.draw.lines(surface, color, False, [world_to_pixel(x) for x in [left, start, right]], 4)
             '''
 
-        def draw_traffic_signs(surface, font_surface, actor, color=COLOR_WHITE, trigger_color=COLOR_PLUM_0):
+        def draw_traffic_signs(surface, font_surface, actor, color=COLOR_WHITE, trigger_color=COLOR_PLUM):
             """Draw stop traffic signs and its bounding box if enabled"""
             transform = actor.get_transform()
             waypoint = carla_map.get_waypoint(transform.location)
@@ -803,7 +780,7 @@ class MapImage(object):
         '''        
         if self.show_spawn_points:
             for sp in carla_map.get_spawn_points():
-                draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
+                draw_arrow(map_surface, sp, color=COLOR_YELLOW)
                 '''
         
         '''
@@ -851,10 +828,10 @@ class MapImage(object):
 
         '''
         for ts_stop in stops:
-            draw_traffic_signs(map_surface, stop_font_surface, ts_stop, trigger_color=COLOR_SCARLET_RED_1)
+            draw_traffic_signs(map_surface, stop_font_surface, ts_stop, trigger_color=COLOR_RED)
 
         for ts_yield in yields:
-            draw_traffic_signs(map_surface, yield_font_surface, ts_yield, trigger_color=COLOR_ORANGE_1)
+            draw_traffic_signs(map_surface, yield_font_surface, ts_yield, trigger_color=COLOR_YELLOW)
             '''
 
     def world_to_pixel(self, location, offset=(0, 0)):
@@ -1167,13 +1144,13 @@ class World(object):
                                 # print("nxt.get_junction().id: ", nxt.get_junction().id, "\n")
                                 if self.hero_actor.get_traffic_light_state() == tls.Red:
                                     # print("red light \n")
-                                    pygame.draw.line(surface, COLOR_SCARLET_RED_0, to_pixel(wp), to_pixel(nxt), 2)
+                                    pygame.draw.line(surface, COLOR_RED, to_pixel(wp), to_pixel(nxt), 2)
                                 elif self.hero_actor.get_traffic_light_state() == tls.Green:
-                                    print("green light \n")
-                                    pygame.draw.line(surface, COLOR_CHAMELEON_0, to_pixel(wp), to_pixel(nxt), 2)
+                                    # print("green light \n")
+                                    pygame.draw.line(surface, COLOR_GREEN, to_pixel(wp), to_pixel(nxt), 2)
                                 elif self.hero_actor.get_traffic_light_state() == tls.Yellow:
-                                    print("yellow light \n")
-                                    pygame.draw.line(surface, COLOR_BUTTER_0, to_pixel(wp), to_pixel(nxt), 2)
+                                    # print("yellow light \n")
+                                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
 
     def _render_speed_limits(self, surface, list_sl, world_to_pixel, world_to_pixel_width):
         """Renders the speed limits by drawing two concentric circles (outer is red and inner white) and a speed limit text"""
@@ -1219,7 +1196,7 @@ class World(object):
             # Render speed limit concentric circles
             white_circle_radius = int(radius * 0.75)
 
-            pygame.draw.circle(surface, COLOR_SCARLET_RED_1, (x, y), radius)
+            pygame.draw.circle(surface, COLOR_RED, (x, y), radius)
             pygame.draw.circle(surface, COLOR_WHITE, (x, y), white_circle_radius)
 
             # 获取限速值
@@ -1241,7 +1218,7 @@ class World(object):
     def _render_walkers(self, surface, list_w, world_to_pixel):
         """Renders the walkers' bounding boxes"""
         for w in list_w:
-            color = COLOR_PLUM_0
+            color = COLOR_PLUM
 
             # Compute bounding box points
             bb = w[0].bounding_box.extent
@@ -1258,11 +1235,11 @@ class World(object):
     def _render_vehicles(self, surface, list_v, world_to_pixel):
         """Renders the vehicles' bounding boxes"""
         for v in list_v:
-            color = COLOR_SKY_BLUE_0
+            color = COLOR_BLUE
             if int(v[0].attributes['number_of_wheels']) == 2:
-                color = COLOR_CHOCOLATE_1
+                color = COLOR_YELLOW
             if v[0].attributes['role_name'] == 'hero':
-                color = COLOR_CHAMELEON_0
+                color = COLOR_GREEN
             # Compute bounding box points
             bb = v[0].bounding_box.extent
             corners = [carla.Location(x=-bb.x, y=-bb.y),
