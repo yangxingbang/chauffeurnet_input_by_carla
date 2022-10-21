@@ -595,12 +595,10 @@ class MapImage(object):
             # Once the lane markings have been simplified to Solid or Broken lines, we draw them
             for markings in markings_list:
                 if markings[0] == carla.LaneMarkingType.Solid:
-                    # print(markings[2])
                     draw_solid_line(surface, markings[1], False, markings[2], 2)
                 elif markings[0] == carla.LaneMarkingType.Broken:
                     draw_broken_line(surface, markings[1], False, markings[2], 2)
 
-        '''        
         def draw_arrow(surface, transform, color=COLOR_WHITE):
             """ Draws an arrow with a specified color given a transform"""
             transform.rotation.yaw += 180
@@ -615,7 +613,6 @@ class MapImage(object):
             # Draw lines
             pygame.draw.lines(surface, color, False, [world_to_pixel(x) for x in [start, end]], 4)
             pygame.draw.lines(surface, color, False, [world_to_pixel(x) for x in [left, start, right]], 4)
-            '''
 
         def draw_traffic_signs(surface, font_surface, actor, color=COLOR_WHITE, trigger_color=COLOR_PLUM):
             """Draw stop traffic signs and its bounding box if enabled"""
@@ -683,17 +680,21 @@ class MapImage(object):
 
         def draw_topology(carla_topology, index):
             precision = 0.05
-            print("draw_topology")
             """ Draws traffic signs and the roads network with sidewalks, parking and shoulders by generating waypoints"""
+            # 每个x都是一个carla.libcarla.Waypoint object
+            # 而x[0]是Waypoint(Transform(Location(x= , y= , z= ), Rotation(pitch= , yaw= , roll= ))), 是carla.Waypoint
+            # 须知，他们两个在carla中是不一样的
+            # topology有112个waypoint
             topology = [x[index] for x in carla_topology]
+            # 从小到大
             topology = sorted(topology, key=lambda w: w.transform.location.z)
             set_waypoints = []
-            # 这里的waypoints是生成拓扑的点吗？和世界生成的waypoints是同一类吗？
-            # 现在只能明确它们的数目不一致
+            # topology的waypoint和world的waypoint不是一回事，但是他们的数据类型好像一样
             for waypoint in topology:
                 waypoints = [waypoint]
 
                 # Generate waypoints of a road id. Stop when road id differs
+                # 如果有，nxt只有一个点
                 nxt = waypoint.next(precision)
                 if len(nxt) > 0:
                     nxt = nxt[0]
@@ -704,6 +705,7 @@ class MapImage(object):
                             nxt = nxt[0]
                         else:
                             break
+                # waypoints中两个点，相隔precision即5cm
                 set_waypoints.append(waypoints)
 
                 # Draw Shoulders, Parkings and Sidewalks
@@ -755,6 +757,7 @@ class MapImage(object):
             # Draw Roads
             for waypoints in set_waypoints:
                 waypoint = waypoints[0]
+                # 车道宽4m
                 road_left_side = [lateral_shift(w.transform, -w.lane_width * 0.5) for w in waypoints]
                 road_right_side = [lateral_shift(w.transform, w.lane_width * 0.5) for w in waypoints]
 
@@ -765,24 +768,23 @@ class MapImage(object):
                 if len(polygon) > 2:
                     pygame.draw.polygon(map_surface, COLOR_BLACK, polygon, 5)
                     pygame.draw.polygon(map_surface, COLOR_BLACK, polygon)
-
+                '''
                 if not waypoint.is_junction:
                     draw_lane_marking(map_surface, [waypoints, waypoints])
-                    '''
+
                     for n, wp in enumerate(waypoints):
                         if ((n + 1) % 400) == 0:
                             draw_arrow(map_surface, wp.transform)
                             '''
 
         topology = carla_map.get_topology()
-        draw_topology(topology, 0)
+        # topology中有112个waypoint
+        # draw_topology(topology, 0)
 
-        '''        
         if self.show_spawn_points:
             for sp in carla_map.get_spawn_points():
                 draw_arrow(map_surface, sp, color=COLOR_YELLOW)
-                '''
-        
+
         '''
         if self.show_connections:
             dist = 1.5
@@ -791,8 +793,8 @@ class MapImage(object):
             for wp in carla_map.generate_waypoints(dist):
                 if wp.is_junction:
                     # 品红色
-                    col = (0, 255, 255) 
-                else: 
+                    col = (0, 255, 255)
+                else:
                     # 绿色
                     col = (0, 255, 0)
                 if wp.is_junction:
@@ -807,7 +809,7 @@ class MapImage(object):
                         if l and l.lane_type == carla.LaneType.Driving:
                             pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(l), 2)
                             '''
-                            
+
 
         actors = carla_world.get_actors()
 
@@ -986,8 +988,11 @@ class World(object):
             spawn_points = self.world.get_map().get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
             # 这个初始点附近很快能遇到交通灯
-            spawn_point.location = carla.Location(8, 191.5, 0.5)
-            spawn_point.rotation = carla.Rotation(0.0, 0.0, 0.0)
+            # spawn_point.location = carla.Location(8, 191.5, 0.5)
+            # spawn_point.rotation = carla.Rotation(0.0, 0.0, 0.0)
+            # 这个初始点就是地图关键路点第一个点所在位置
+            spawn_point.location = carla.Location(-3.452, 199.24, 0.5)
+            spawn_point.rotation = carla.Rotation(0.0, 270.0, 0.0)
             self.hero_actor = self.world.try_spawn_actor(blueprint, spawn_point)
         self.hero_transform = self.hero_actor.get_transform()
 
@@ -1109,8 +1114,8 @@ class World(object):
         但是这种连线是以整体呈现的，因为不清楚哪个waypoint由哪个红绿灯控制，
         所以不能将某个红绿灯控制的对应左转直行右转的线作为一组画出来；
 
-        降低要求后的实现：在车辆进入前方红绿灯影响区域，且这个红绿灯是红灯，所有junction的拓扑都会被画出来；
-        目前推测，能满足车辆走停，左转直行正常，右转异常;
+        降低要求后的实现：在车辆进入前方红绿灯影响区域，这个灯是红色即影响了车辆的行驶，就将这个红绿灯的颜色画出；
+        能满足车辆走停，左转直行正常，右转异常;
 
         TODO(yxb): 我需要知道junction的拓扑的获取API
         """
@@ -1121,18 +1126,18 @@ class World(object):
         """
 
         dist = 2
-        def to_pixel(wp): return world_to_pixel(wp.transform.location) 
-        
+        def to_pixel(wp): return world_to_pixel(wp.transform.location)
+
         in_hero_junction = []
         junction_id = 10000
 
-        if self.hero_actor.is_at_traffic_light():            
+        if self.hero_actor.is_at_traffic_light():
             hero_location = self.hero_actor.get_location()
             hero_wp = self.world.get_map().get_waypoint(hero_location)
             hero_next_wp = hero_wp.next(16.0)[0]
             if hero_next_wp.is_junction:
                 junction_id = hero_next_wp.get_junction().id
-                print("hero junction_id: ", junction_id, "\n")
+                # print("hero junction_id: ", junction_id, "\n")
 
         for wp in self.world.get_map().generate_waypoints(dist):
             if wp.is_junction:
@@ -1155,65 +1160,54 @@ class World(object):
     def _render_speed_limits(self, surface, list_sl, world_to_pixel, world_to_pixel_width):
         """Renders the speed limits by drawing two concentric circles (outer is red and inner white) and a speed limit text"""
 
-        '''
-        if self.show_connections:
-            dist = 1.5
+        dist = 2
+        def to_pixel(wp): return world_to_pixel(wp.transform.location)
 
-            def to_pixel(wp): return world_to_pixel(wp.transform.location)
-            for wp in carla_map.generate_waypoints(dist):
-                if wp.is_junction:
-                    # 品红色
-                    col = (0, 255, 255) 
-                else: 
-                    # 绿色
-                    col = (0, 255, 0)
-                if wp.is_junction:
-                    for nxt in wp.next(dist):
-                        pygame.draw.line(map_surface, col, to_pixel(wp), to_pixel(nxt), 2)
-                    if wp.lane_change & carla.LaneChange.Right:
-                        r = wp.get_right_lane()
-                        if r and r.lane_type == carla.LaneType.Driving:
-                            pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(r), 2)
-                    if wp.lane_change & carla.LaneChange.Left:
-                        l = wp.get_left_lane()
-                        if l and l.lane_type == carla.LaneType.Driving:
-                            pygame.draw.line(map_surface, COLOR_WHITE, to_pixel(wp), to_pixel(l), 2)
-                            '''
+        for wp in self.world.get_map().generate_waypoints(dist):
+            for nxt in wp.next(dist):
+                ### 1. 最外圈车道限速
+                if wp.transform.location.y > 135.181 and wp.transform.location.y < 169.238 \
+                 and wp.transform.location.x > 192.000:
+                    # 以git中的地图方向为标准描述：
+                    # 左上角30右边的60的控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
+                elif wp.transform.location.x > 147.550 and wp.transform.location.x < 166.660 \
+                 and wp.transform.location.y < 106.430:
+                    # 左上角60控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
+                elif wp.transform.location.x > 46.226 and wp.transform.location.x < 147.550 \
+                 and wp.transform.location.y < 106.430:
+                    # 左上角60下边的90的控制段
+                    pygame.draw.line(surface, COLOR_RED, to_pixel(wp), to_pixel(nxt), 2)
+                elif wp.transform.location.x > 23.216 and wp.transform.location.x < 46.226 \
+                 and wp.transform.location.y < 106.430:
+                    # 左上角60下边的90的下边的60的控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
 
-        # print("hero speed: ", self.hero_actor.get_velocity(), "\n")
-        # print("hero speed limit: ", self.hero_actor.get_speed_limit(), "\n")
-        # print("--------------------------------------------")
-
-
-        font_size = world_to_pixel_width(2)
-        radius = world_to_pixel_width(2)
-        font = pygame.font.SysFont('Arial', font_size)
-        # sl 表示每个 限速标志
-        for sl in list_sl:
-
-            x, y = world_to_pixel(sl.get_location())
-
-            # Render speed limit concentric circles
-            white_circle_radius = int(radius * 0.75)
-
-            pygame.draw.circle(surface, COLOR_RED, (x, y), radius)
-            pygame.draw.circle(surface, COLOR_WHITE, (x, y), white_circle_radius)
-
-            # 获取限速值
-            limit = sl.type_id.split('.')[2]
-            font_surface = font.render(limit, True, COLOR_BLACK)
-
-            # Blit
-            if self.hero_actor is not None:
-                # In hero mode, Rotate font surface with respect to hero vehicle front
-                angle = -self.hero_transform.rotation.yaw - 90.0
-                font_surface = pygame.transform.rotate(font_surface, angle)
-                offset = font_surface.get_rect(center=(x, y))
-                surface.blit(font_surface, offset)
-
-            else:
-                # In map mode, there is no need to rotate the text of the speed limit
-                surface.blit(font_surface, (x - radius / 2, y - radius / 2))
+                elif wp.transform.location.x > 53.270 and wp.transform.location.x < 161.437 \
+                 and wp.transform.location.y > 305.532:
+                    # 右下角60的控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
+                ### 2. 最外圈车道的内侧车道限速
+                elif wp.transform.location.x > 22.957 and wp.transform.location.x < 143.752 \
+                 and wp.transform.location.y > 108.446 and wp.transform.location.y < 110.446:
+                    # 左下角90的控制段
+                    pygame.draw.line(surface, COLOR_RED, to_pixel(wp), to_pixel(nxt), 2)
+                elif wp.transform.location.x > 143.752 and  wp.transform.location.x < 160.672 \
+                 and wp.transform.location.y > 108.446 and wp.transform.location.y < 110.446:
+                    # 左下角90上边60的控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
+                elif wp.transform.location.y > 254.090 and wp.transform.location.y < 283.900 \
+                 and wp.transform.location.x > 188.698 and wp.transform.location.x < 190.698:
+                    # 右上角(靠左靠上)60的控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
+                elif wp.transform.location.x > 74.209 and wp.transform.location.x < 153.811 \
+                 and wp.transform.location.y > 301.537 and wp.transform.location.y < 303.537:
+                    # 右上角(靠右靠下)60的控制段
+                    pygame.draw.line(surface, COLOR_YELLOW, to_pixel(wp), to_pixel(nxt), 2)
+                else:
+                    # 剩下的30控制段
+                    pygame.draw.line(surface, COLOR_GREEN, to_pixel(wp), to_pixel(nxt), 2)
 
     def _render_walkers(self, surface, list_w, world_to_pixel):
         """Renders the walkers' bounding boxes"""
@@ -1261,12 +1255,12 @@ class World(object):
         self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
         # speed_limits: 交通标志对象，交通标志位姿对象 的 集合
         # sl： 交通标志对象，交通标志位姿对象
-        # sl[0]： 交通标志对象，它也是Actor类型        
+        # sl[0]： 交通标志对象，它也是Actor类型
         # self._render_speed_limits(surface, [sl[0] for sl in speed_limits], self.map_image.world_to_pixel,
         #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
-        self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
+        # self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
     def clip_surfaces(self, clipping_rect):
@@ -1565,7 +1559,7 @@ def game_loop(args):
             pygame.display.flip()
 
             # 每10帧保存显示的图片
-            
+
             total_time_last_step = total_time
             total_time += clock.get_time()
             if total_time_last_step != total_time:
@@ -1574,7 +1568,7 @@ def game_loop(args):
                 full_path = str(os.path.join("cache", "display"))
                 pygame.image.save(display, '%09d.png' % total_time)
                 counts = 0
-                
+
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
