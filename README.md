@@ -23,3 +23,9 @@ need save to gray image
 
 
 ![image](assets/(c)_speed_limit_color.png)
+
+
+(5) draw current agent box
+
+
+ ![image](assets/(e)_current_agent_box.png)
