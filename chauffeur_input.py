@@ -1246,13 +1246,27 @@ class World(object):
             corners = [world_to_pixel(p) for p in corners]
             pygame.draw.lines(surface, color, False, corners, int(math.ceil(4.0 * self.map_image.scale)))
 
+    def _render_hero_vehicle(self, surface, list_v, world_to_pixel):
+        for v in list_v:
+            if v[0].attributes['role_name'] == 'hero':
+                color = COLOR_GREEN
+            # Compute bounding box points
+            bb = v[0].bounding_box.extent
+            points = [carla.Location(x=-bb.x, y=-bb.y),
+                      carla.Location(x=bb.x - 0.8, y=-bb.y),
+                      carla.Location(x=bb.x - 0.8, y=bb.y),
+                      carla.Location(x=-bb.x, y=bb.y)]
+            v[1].transform(points)
+            img_p = [world_to_pixel(p) for p in points]
+            pygame.draw.polygon(surface, COLOR_WHITE, img_p, 0)
+
     def render_actors(self, surface, vehicles, traffic_lights, speed_limits, walkers):
         """Renders all the actors"""
         # Static actors
         # traffic_lights： 交通灯对象，交通灯位姿对象 的 集合
         # tl: 交通灯对象，交通灯位姿对象
         # tl[0]: 交通灯对象，它是Actor类型
-        self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
+        # self._render_traffic_lights(surface, [tl[0] for tl in traffic_lights], self.map_image.world_to_pixel)
         # speed_limits: 交通标志对象，交通标志位姿对象 的 集合
         # sl： 交通标志对象，交通标志位姿对象
         # sl[0]： 交通标志对象，它也是Actor类型
@@ -1260,6 +1274,7 @@ class World(object):
         #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
+        self._render_hero_vehicle(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
