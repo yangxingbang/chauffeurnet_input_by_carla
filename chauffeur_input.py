@@ -1476,6 +1476,17 @@ class InputControl(object):
                         self.control.gear = self.control.gear + 1
                     elif event.key == K_p:
                         # Toggle autopilot
+
+                        '''
+                        TODO(yxb):
+                        1. 自己设定终点 agent.set_destination
+                        2. 自己设定route的waypoints个数 min_route_waypoint_num = 20, 不够20补齐
+                        3. 自己生成全局路径 GlobalRoutePlanner
+                        4. 调用localplanner与control使自车自动驾驶
+                        5. 以上成功后打印route的waypoints
+                        6. 将route的waypoints可可视化到img
+                        '''
+
                         if self._world.hero_actor is not None:
                             self._autopilot_enabled = not self._autopilot_enabled
                             self._world.hero_actor.set_autopilot(self._autopilot_enabled)
