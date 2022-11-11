@@ -46,12 +46,23 @@ try:
 except IndexError:
     pass
 
+
+try:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/carla')
+except IndexError:
+    pass
+
+
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
 # ==============================================================================
 
 import carla
 from carla import TrafficLightState as tls
+
+from agents.navigation.behavior_agent import BehaviorAgent
+from agents.navigation.roaming_agent import RoamingAgent
+from agents.navigation.basic_agent import BasicAgent
 
 import argparse
 import logging
@@ -779,7 +790,7 @@ class MapImage(object):
 
         topology = carla_map.get_topology()
         # topology中有112个waypoint
-        # draw_topology(topology, 0)
+        draw_topology(topology, 0)
 
         if self.show_spawn_points:
             for sp in carla_map.get_spawn_points():
@@ -859,6 +870,7 @@ class World(object):
 
     def __init__(self, name, args, timeout):
         self.client = None
+        self.agent = None
         self.name = name
         self.args = args
         self.timeout = timeout
@@ -960,6 +972,12 @@ class World(object):
         self.hero_actor.set_autopilot(False)
         self._input.wheel_offset = HERO_DEFAULT_SCALE
         self._input.control = carla.VehicleControl()
+
+        if self.args.agent == "Roaming":
+            self.agent = RoamingAgent(self.hero_actor)
+        elif self.args.agent == "Basic":
+            self.agent = BasicAgent(self.hero_actor)
+            self.agent.set_destination((110.00, 190.00, 0.5))
 
         # Register event for receiving server tick
         weak_self = weakref.ref(self)
@@ -1484,7 +1502,7 @@ class InputControl(object):
                         3. 自己生成全局路径 GlobalRoutePlanner
                         4. 调用localplanner与control使自车自动驾驶
                         5. 以上成功后打印route的waypoints
-                        6. 将route的waypoints可可视化到img
+                        6. 将route的waypoints可视化到img
                         '''
 
                         if self._world.hero_actor is not None:
@@ -1575,17 +1593,61 @@ def game_loop(args):
             clock.tick_busy_loop(60)
 
             # Tick all modules
-            world.tick(clock)
-            input_control.tick(clock)
+            # world.tick(clock)
+            # input_control.tick(clock)
 
-            world.render(display)
-            input_control.render(display)
 
+            # As soon as the server is ready continue!
+            if not world.world.wait_for_tick(10.0):
+                continue
+
+            if args.agent == "Roaming" or args.agent == "Basic":
+                # as soon as the server is ready continue!
+                world.world.wait_for_tick(10.0)
+
+                world.tick(clock)
+                input_control.tick(clock)
+                world.render(display)
+                input_control.render(display)
+                pygame.display.flip()
+                control = world.agent.run_step()
+                control.manual_gear_shift = False
+                world.hero_actor.apply_control(control)
+            
+            '''
+            else:
+                agent.update_information()
+
+                world.tick(clock)
+                world.render(display)
+                pygame.display.flip()
+
+                # Set new destination when target has been reached
+                if len(agent.get_local_planner().waypoints_queue) < num_min_waypoints and args.loop:
+                    agent.reroute(spawn_points)
+                    tot_target_reached += 1
+                    world.hud.notification("The target has been reached " +
+                                           str(tot_target_reached) + " times.", seconds=4.0)
+
+                elif len(agent.get_local_planner().waypoints_queue) == 0 and not args.loop:
+                    print("Target reached, mission accomplished...")
+                    break
+
+                speed_limit = world.player.get_speed_limit()
+                agent.get_local_planner().set_speed(speed_limit)
+
+                control = agent.run_step()
+                world.player.apply_control(control)
+                '''
+
+
+
+
+            # world.render(display)
+            # input_control.render(display)
             # 删除后屏幕显示不会再更新
-            pygame.display.flip()
-
+            # pygame.display.flip()
             # 每10帧保存显示的图片
-
             total_time_last_step = total_time
             total_time += clock.get_time()
             if total_time_last_step != total_time:
@@ -1669,6 +1731,12 @@ def main():
         '--show-spawn-points',
         action='store_true',
         help='show recommended spawn points')
+
+
+    argparser.add_argument("-a", "--agent", type=str,
+                           choices=["Behavior", "Roaming", "Basic"],
+                           help="select which agent to run",
+                           default="Basic")
 
     # Parse arguments
     args = argparser.parse_args()
