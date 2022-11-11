@@ -871,6 +871,7 @@ class World(object):
     def __init__(self, name, args, timeout):
         self.client = None
         self.agent = None
+        self.route = None
         self.name = name
         self.args = args
         self.timeout = timeout
@@ -977,11 +978,24 @@ class World(object):
             self.agent = RoamingAgent(self.hero_actor)
         elif self.args.agent == "Basic":
             self.agent = BasicAgent(self.hero_actor)
-            self.agent.set_destination((110.00, 190.00, 0.5))
+            # self.agent.set_destination((110.00, 190.00, 0.5))
+            
+            start = self.town_map.get_waypoint(carla.Location(-3.452, 199.24, 0.5))
+            destination = self.town_map.get_waypoint(carla.Location(110.00, 190.00, 0.5))
+            route_trace = self.agent._trace_route(start, destination)
+            self.agent._local_planner.set_global_plan(route_trace)
+            self.route = route_trace
 
         # Register event for receiving server tick
         weak_self = weakref.ref(self)
         self.world.on_tick(lambda timestamp: World.on_world_tick(weak_self, timestamp))
+
+    def render_route(self, surface, world_to_pixel):
+        for i in range(len(self.route) - 1):
+            # TODO(yxb): 怎么让车后的点不画出？
+                wp_location = self.route[i][0].transform.location
+                nxt_location = self.route[i+1][0].transform.location
+                pygame.draw.line(surface, COLOR_WHITE, world_to_pixel(wp_location), world_to_pixel(nxt_location), 10)
 
     def select_hero_actor(self):
         """Selects only one hero actor if there are more than one. If there are not any, it will spawn one."""
@@ -1351,6 +1365,9 @@ class World(object):
             speed_limits,
             walkers)
 
+        # display hero's route
+        self.render_route(self.actors_surface, self.map_image.world_to_pixel)
+
         # Render Ids
         self._hud.render_vehicles_ids(self.vehicle_id_surface, vehicles,
                                       self.map_image.world_to_pixel, self.hero_actor, self.hero_transform)
@@ -1596,7 +1613,6 @@ def game_loop(args):
             # world.tick(clock)
             # input_control.tick(clock)
 
-
             # As soon as the server is ready continue!
             if not world.world.wait_for_tick(10.0):
                 continue
@@ -1611,37 +1627,7 @@ def game_loop(args):
                 input_control.render(display)
                 pygame.display.flip()
                 control = world.agent.run_step()
-                control.manual_gear_shift = False
                 world.hero_actor.apply_control(control)
-            
-            '''
-            else:
-                agent.update_information()
-
-                world.tick(clock)
-                world.render(display)
-                pygame.display.flip()
-
-                # Set new destination when target has been reached
-                if len(agent.get_local_planner().waypoints_queue) < num_min_waypoints and args.loop:
-                    agent.reroute(spawn_points)
-                    tot_target_reached += 1
-                    world.hud.notification("The target has been reached " +
-                                           str(tot_target_reached) + " times.", seconds=4.0)
-
-                elif len(agent.get_local_planner().waypoints_queue) == 0 and not args.loop:
-                    print("Target reached, mission accomplished...")
-                    break
-
-                speed_limit = world.player.get_speed_limit()
-                agent.get_local_planner().set_speed(speed_limit)
-
-                control = agent.run_step()
-                world.player.apply_control(control)
-                '''
-
-
-
 
             # world.render(display)
             # input_control.render(display)
