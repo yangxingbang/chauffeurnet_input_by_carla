@@ -870,9 +870,6 @@ class World(object):
 
     def __init__(self, name, args, timeout):
         self.client = None
-        self.agent = None
-        self.route = None
-        self.route_wp_index = 0
         self.name = name
         self.args = args
         self.timeout = timeout
@@ -911,6 +908,12 @@ class World(object):
         self.original_surface_size = None
         self.hero_surface = None
         self.actors_surface = None
+
+        self.agent = None
+        self.route = None
+        self.route_wp_index = 0
+        self.past_location = carla.Location(-3.452, 199.24, 0.5)
+        self.save_past = []
 
     def _get_data_from_carla(self):
         """Retrieves the data from the server side"""
@@ -1022,6 +1025,26 @@ class World(object):
             nxt_transform = self.route[i+1][0].transform
             pygame.draw.line(surface, COLOR_WHITE, world_to_pixel(wp_transform.location), world_to_pixel(nxt_transform.location), 10)
             i += 1
+
+    def render_hero_past_poses(self, surface, world_to_pixel):
+        location = self.hero_transform.location
+        delta_original_x = location.x - self.past_location.x
+        delta_original_y = location.y - self.past_location.y
+        dist_original = math.hypot(delta_original_x, delta_original_y)
+        if dist_original > 1.0:
+            self.save_past.append(location)
+            self.past_location = location
+
+        if len(self.save_past) <= 10:
+            for wpl in self.save_past:
+                pygame.draw.circle(surface, COLOR_WHITE, world_to_pixel(wpl), 2)
+        else:
+            index = len(self.save_past) - 1
+
+            while index >= (len(self.save_past) - 10):
+                # print("index: ", index, "\n------------------")
+                pygame.draw.circle(surface, COLOR_WHITE, world_to_pixel(self.save_past[index]), 2)
+                index -= 1
 
     def select_hero_actor(self):
         """Selects only one hero actor if there are more than one. If there are not any, it will spawn one."""
@@ -1332,7 +1355,7 @@ class World(object):
         #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
-        self._render_hero_vehicle(surface, vehicles, self.map_image.world_to_pixel)
+        # self._render_hero_vehicle(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
@@ -1392,7 +1415,10 @@ class World(object):
             walkers)
 
         # display hero's route
-        self.render_route(self.actors_surface, self.map_image.world_to_pixel)
+        # self.render_route(self.actors_surface, self.map_image.world_to_pixel)
+
+        # display hero's past 10 hero_past_poses
+        self.render_hero_past_poses(self.actors_surface, self.map_image.world_to_pixel)
 
         # Render Ids
         self._hud.render_vehicles_ids(self.vehicle_id_surface, vehicles,
