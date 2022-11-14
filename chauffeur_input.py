@@ -872,6 +872,7 @@ class World(object):
         self.client = None
         self.agent = None
         self.route = None
+        self.route_wp_index = 0
         self.name = name
         self.args = args
         self.timeout = timeout
@@ -991,11 +992,36 @@ class World(object):
         self.world.on_tick(lambda timestamp: World.on_world_tick(weak_self, timestamp))
 
     def render_route(self, surface, world_to_pixel):
-        for i in range(len(self.route) - 1):
-            # TODO(yxb): 怎么让车后的点不画出？
-                wp_location = self.route[i][0].transform.location
-                nxt_location = self.route[i+1][0].transform.location
-                pygame.draw.line(surface, COLOR_WHITE, world_to_pixel(wp_location), world_to_pixel(nxt_location), 10)
+        # 在车辆航向的前方取一个点，获得车和该点的矢量，再取车和目标点的矢量，计算两矢量的叉乘
+        # 就能得到目标点是在车辆运动方向的前方还是后方
+        # forward_y = math.sin(self.hero_transform.rotation.yaw * 3.1416 / 180) * 4.0
+        # forward_x = math.cos(self.hero_transform.rotation.yaw * 3.1416 / 180) * 4.0
+        # between = wp_transform.location - self.hero_transform.location
+        # cross = forward_x * between.y + forward_y * between.x
+        # if cross > 0:
+
+        location = self.hero_transform.location
+        min_dist = 2 * 10 ^ 4
+        min_dist_index = 0
+        j = self.route_wp_index
+        # print("self.route_wp_index: ", self.route_wp_index, "  ")
+        while j < len(self.route) - 1 :
+            wp_location = self.route[j][0].transform.location
+            delta_x = wp_location.x - location.x
+            delta_y = wp_location.y - location.y
+            square_root = math.hypot(delta_x, delta_y)
+            if square_root < min_dist:
+                min_dist = square_root
+                min_dist_index = j
+            j += 1
+        # print("if min_dist: ", min_dist, "min_dist_index: ", min_dist_index, "\n")
+        self.route_wp_index = min_dist_index
+        i = min_dist_index
+        while i < len(self.route) - 1 :
+            wp_transform = self.route[i][0].transform
+            nxt_transform = self.route[i+1][0].transform
+            pygame.draw.line(surface, COLOR_WHITE, world_to_pixel(wp_transform.location), world_to_pixel(nxt_transform.location), 10)
+            i += 1
 
     def select_hero_actor(self):
         """Selects only one hero actor if there are more than one. If there are not any, it will spawn one."""
