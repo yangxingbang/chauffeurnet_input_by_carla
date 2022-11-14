@@ -25,7 +25,7 @@ need save to gray image
 ![image](assets/(c)_speed_limit_color.png)
 
 
-(3) draw route
+(4) draw route
 
 
 ![image](assets/(d)_route_color.png)
