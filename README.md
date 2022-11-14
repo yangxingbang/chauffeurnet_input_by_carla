@@ -34,7 +34,13 @@ need save to gray image
 (5) draw current agent box
 
 
- ![image](assets/(e)_current_agent_box.png)
+![image](assets/(e)_current_agent_box.png)
+
+
+(6) ignore obstacles for now
+
+
+![image](assets/(f)_dynamic_boxes.png)
 
 
 (7) draw agent past 10 poses
