@@ -35,3 +35,9 @@ need save to gray image
 
 
  ![image](assets/(e)_current_agent_box.png)
+
+
+(7) draw agent past 10 poses
+
+
+ ![image](assets/(g)_past_agent_poses.png)
