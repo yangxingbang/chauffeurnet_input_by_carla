@@ -121,12 +121,15 @@ TITLE_WORLD = 'WORLD'
 TITLE_HUD = 'HUD'
 TITLE_INPUT = 'INPUT'
 
-PIXELS_PER_METER = 12
+# a ground sampling resolution of phi meters/pixel in ChauffeurNet
+PIXELS_PER_METER = 5
 
 MAP_DEFAULT_SCALE = 0.1
 HERO_DEFAULT_SCALE = 1.0
 
-PIXELS_AHEAD_VEHICLE = 150
+#  as the agent moves, this view of the environment moves with it 
+#  so the agent always sees a fixed forward range: 80pixels, 16m
+PIXELS_AHEAD_VEHICLE = 80
 
 # ==============================================================================
 # -- Util -----------------------------------------------------------
@@ -421,19 +424,22 @@ class MapImage(object):
         waypoints = carla_map.generate_waypoints(2)
 
         margin = 50
+        # max_x:  243.74  max_y:  356.55   min_x:  -57.46   min_y:  55.39
+        # 把所有路点中最边界的值取出
         max_x = max(waypoints, key=lambda x: x.transform.location.x).transform.location.x + margin
         max_y = max(waypoints, key=lambda x: x.transform.location.y).transform.location.y + margin
         min_x = min(waypoints, key=lambda x: x.transform.location.x).transform.location.x - margin
         min_y = min(waypoints, key=lambda x: x.transform.location.y).transform.location.y - margin
 
+        # 301.2, 301.17
+        # 把宽和高的最大值取出 301.2
         self.width = max(max_x - min_x, max_y - min_y)
+        # -57.46, 55.39
         self._world_offset = (min_x, min_y)
 
         self._pixels_per_meter = PIXELS_PER_METER
         width_in_pixels = int(self._pixels_per_meter * self.width)
-
-        # 3614, 3614
-        # width_in_pixels变小后对显示没有任何影响
+        # 1506 = 301.2 * 5
         self.big_map_surface = pygame.Surface((width_in_pixels, width_in_pixels)).convert()
 
         # Load OpenDrive content
@@ -849,8 +855,10 @@ class MapImage(object):
 
     def world_to_pixel(self, location, offset=(0, 0)):
         """Converts the world coordinates to pixel coordinates"""
+        # self._world_offset[0]:  -57.46   self._world_offset[1]:  55.39
         x = self.scale * self._pixels_per_meter * (location.x - self._world_offset[0])
         y = self.scale * self._pixels_per_meter * (location.y - self._world_offset[1])
+        
         return [int(x - offset[0]), int(y - offset[1])]
 
     def world_to_pixel_width(self, width):
@@ -953,7 +961,9 @@ class World(object):
         self._hud = hud
         self._input = input_control
 
+        # 400
         self.original_surface_size = min(self._hud.dim[0], self._hud.dim[1])
+        # 1506
         self.surface_size = self.map_image.big_map_surface.get_width()
 
         self.scaled_size = int(self.surface_size)
@@ -961,14 +971,18 @@ class World(object):
 
         # Render Actors
         self.actors_surface = pygame.Surface((self.map_image.surface.get_width(), self.map_image.surface.get_height()))
+        # print("self.map_image.surface.get_width(): ", self.map_image.surface.get_width(),
+        #  "  self.map_image.surface.get_height()", self.map_image.surface.get_height())
         self.actors_surface.set_colorkey(COLOR_BLACK)
 
         self.vehicle_id_surface = pygame.Surface((self.surface_size, self.surface_size)).convert()
         self.vehicle_id_surface.set_colorkey(COLOR_BLACK)
 
+        # 444.44
         scaled_original_size = self.original_surface_size * (1.0 / 0.9)
         self.hero_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
 
+        # 1506
         self.result_surface = pygame.Surface((self.surface_size, self.surface_size)).convert()
         self.result_surface.set_colorkey(COLOR_BLACK)
 
@@ -1355,7 +1369,7 @@ class World(object):
         #                           self.map_image.world_to_pixel_width)
 
         # Dynamic actors
-        # self._render_hero_vehicle(surface, vehicles, self.map_image.world_to_pixel)
+        self._render_hero_vehicle(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_vehicles(surface, vehicles, self.map_image.world_to_pixel)
         # self._render_walkers(surface, walkers, self.map_image.world_to_pixel)
 
@@ -1400,8 +1414,11 @@ class World(object):
         vehicles, traffic_lights, speed_limits, walkers = self._split_actors()
 
         # Zoom in and out
+        # scale_factor: 1
         scale_factor = self._input.wheel_offset
+        # self.map_image.width: 301.2
         self.scaled_size = int(self.map_image.width * scale_factor)
+        # self.prev_scaled_size: 301
         if self.scaled_size != self.prev_scaled_size:
             self._compute_scale(scale_factor)
 
@@ -1458,6 +1475,7 @@ class World(object):
 
             rotated_result_surface = pygame.transform.rotozoom(self.hero_surface, angle, 0.9).convert()
 
+            # 只调center的位置是不行的，图片上部会显示不全，需要调整另外的参数
             center = (display.get_width() / 2, display.get_height() / 2)
             rotation_pivot = rotated_result_surface.get_rect(center=center)
             display.blit(rotated_result_surface, rotation_pivot)
@@ -1671,7 +1689,7 @@ def game_loop(args):
 
             if args.agent == "Roaming" or args.agent == "Basic":
                 # as soon as the server is ready continue!
-                world.world.wait_for_tick(10.0)
+                world.world.wait_for_tick(20.0)
 
                 world.tick(clock)
                 input_control.tick(clock)
@@ -1690,7 +1708,7 @@ def game_loop(args):
             total_time += clock.get_time()
             if total_time_last_step != total_time:
                 counts += 1
-            if counts == 100:
+            if counts == 50:
                 full_path = str(os.path.join("cache", "display"))
                 pygame.image.save(display, '%09d.png' % total_time)
                 counts = 0
@@ -1736,11 +1754,12 @@ def main():
         default=2000,
         type=int,
         help='TCP port to listen to (default: 2000)')
+    # img size in ChauffeurNet
     argparser.add_argument(
         '--res',
         metavar='WIDTHxHEIGHT',
-        default='1280x720',
-        help='window resolution (default: 1280x720)')
+        default='400x400',
+        help='window resolution (default: 400x400)')
     argparser.add_argument(
         '--filter',
         metavar='PATTERN',
