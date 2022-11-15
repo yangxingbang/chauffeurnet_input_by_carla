@@ -912,7 +912,7 @@ class World(object):
 
         # Map info
         self.map_image = None
-        self.border_round_surface = None
+        # self.border_round_surface = None
         self.original_surface_size = None
         self.hero_surface = None
         self.actors_surface = None
@@ -979,7 +979,8 @@ class World(object):
         self.vehicle_id_surface.set_colorkey(COLOR_BLACK)
 
         # 444.44
-        scaled_original_size = self.original_surface_size * (1.0 / 0.9)
+        # 扩大画布，否则车辆位置移动以后，地图显示不全
+        scaled_original_size = self.original_surface_size * (1.0 / 0.5)
         self.hero_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
 
         # 1506
@@ -1438,8 +1439,8 @@ class World(object):
         self.render_hero_past_poses(self.actors_surface, self.map_image.world_to_pixel)
 
         # Render Ids
-        self._hud.render_vehicles_ids(self.vehicle_id_surface, vehicles,
-                                      self.map_image.world_to_pixel, self.hero_actor, self.hero_transform)
+        # self._hud.render_vehicles_ids(self.vehicle_id_surface, vehicles,
+        #                               self.map_image.world_to_pixel, self.hero_actor, self.hero_transform)
         # Show nearby actors from hero mode
         self._show_nearby_vehicles(vehicles)
 
@@ -1465,6 +1466,7 @@ class World(object):
                                         translation_offset[1],
                                         self.hero_surface.get_width(),
                                         self.hero_surface.get_height())
+            # self.hero_surface.get_width(): 444  self.hero_surface.get_height(): 444
             self.clip_surfaces(clipping_rect)
 
             Util.blits(self.result_surface, surfaces)
@@ -1475,8 +1477,8 @@ class World(object):
 
             rotated_result_surface = pygame.transform.rotozoom(self.hero_surface, angle, 0.9).convert()
 
-            # 只调center的位置是不行的，图片上部会显示不全，需要调整另外的参数
-            center = (display.get_width() / 2, display.get_height() / 2)
+            # 只调center的位置是不行的，图片上部会显示不全，还需要调整hero_surface的画布大小
+            center = (display.get_width() / 2, display.get_height() / 1.5)
             rotation_pivot = rotated_result_surface.get_rect(center=center)
             display.blit(rotated_result_surface, rotation_pivot)
 
