@@ -47,3 +47,6 @@ need save to gray image
 
 
  ![image](assets/(g)_past_agent_poses.png)
+
+
+about 2022.11.15, someone said the going research was useless for corp, and said do other important thing or go, so i have to stop this research. i will be back someday.
